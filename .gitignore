@@ -1,0 +1,20 @@
+# Build outputs
+bin/
+obj/
+[Pp]ublish/
+
+# Local tooling / probe data
+.devtools/
+.dotnet/
+.nuget/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# OS / logs
+Thumbs.db
+.DS_Store
+*.log
