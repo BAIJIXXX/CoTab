@@ -22,7 +22,6 @@ public partial class MainWindow : Window
     private const double CollapsedTabLengthDip = 88;
     private const double MinimumWindowWidth = 360;
     private const double MinimumWindowHeight = 420;
-    private static readonly Color AccentTint = Color.FromArgb(255, 0xFF, 0xD6, 0x6B);
 
     private readonly AppState _state;
     private readonly bool _previewMode;
@@ -40,6 +39,7 @@ public partial class MainWindow : Window
     private bool _uiUpdating;
     private bool _settingsOpen;
     private bool _isCollapsed;
+    private bool _closing;
     private bool _suppressAutoHide;
     private bool _resizingWindow;
     private bool _noteMenuOpen;
@@ -156,10 +156,16 @@ public partial class MainWindow : Window
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (_previewMode) return;
-        foreach (var note in _notes.Where(n => n.IsEditing).ToList())
-            note.EndEdit();
+        // EndEdit raises EditFinished, and that handler normally restarts the
+        // auto-hide timer. Once the window is closing its visual tree is no
+        // longer connected to a PresentationSource, so a late CollapsePanel
+        // would throw "This Visual is not connected to a PresentationSource".
+        _closing = true;
         _saveTimer.Stop();
         _autoHideTimer.Stop();
+        _toastTimer.Stop();
+        foreach (var note in _notes.Where(n => n.IsEditing).ToList())
+            note.EndEdit();
         SaveNow();
         DisposeTrayIcon();
     }
@@ -218,8 +224,8 @@ public partial class MainWindow : Window
 
         SettingsGlyph.Fill = new SolidColorBrush(settingsInk);
         CloseGlyph.Stroke = new SolidColorBrush(closeInk);
-        PinGlyph.Fill = new SolidColorBrush(settingsInk);
-        AutoHideGlyph.Fill = new SolidColorBrush(settingsInk);
+        PinGlyph.Fill = new SolidColorBrush(closeInk);
+        AutoHideGlyph.Fill = new SolidColorBrush(closeInk);
         AddNotePlus.Foreground = new SolidColorBrush(addInk);
         AddNoteText.Foreground = new SolidColorBrush(addInk);
 
@@ -629,28 +635,29 @@ public partial class MainWindow : Window
         ResetTrashVisual();
     }
 
-    /// <summary>Pin and auto-collapse buttons are two-state: tinted when enabled, plain when off.</summary>
+    /// <summary>
+    /// Pin and auto-collapse buttons are two-state: dark like the close X when
+    /// on, translucent when off. Their background is never used for state.
+    /// </summary>
     private void RefreshChromeState()
     {
         if (_uiUpdating) return;
         var settings = _state.Settings;
-        var panel = ColorUtil.Parse(settings.PanelColor, Colors.White);
-        var darkPanel = ColorUtil.Luminance(panel) < 0.46;
-        var ink = ColorUtil.Parse(settings.SettingsColor, ColorUtil.Parse("#3B3C42", Colors.Black));
-        var muted = ColorUtil.DeriveMuted(ink, darkPanel ? 0.28 : 0.42);
+        var closeInk = ColorUtil.Parse(settings.CloseColor, ColorUtil.Parse("#3B3C42", Colors.Black));
+        var offInk = ColorUtil.WithAlpha(closeInk, 0.40);
         var imagePill = ChromePillBrush();
-        var activePill = new SolidColorBrush(Color.FromArgb(46, AccentTint.R, AccentTint.G, AccentTint.B));
 
-        PinButton.Background = settings.AlwaysOnTop ? activePill : (imagePill ?? Brushes.Transparent);
-        AutoHideButton.Background = settings.AutoHide ? activePill : (imagePill ?? Brushes.Transparent);
-        PinGlyph.Fill = new SolidColorBrush(settings.AlwaysOnTop ? ink : muted);
-        AutoHideGlyph.Fill = new SolidColorBrush(settings.AutoHide ? ink : muted);
+        PinButton.Background = imagePill ?? Brushes.Transparent;
+        AutoHideButton.Background = imagePill ?? Brushes.Transparent;
+        PinGlyph.Fill = new SolidColorBrush(settings.AlwaysOnTop ? closeInk : offInk);
+        AutoHideGlyph.Fill = new SolidColorBrush(settings.AutoHide ? closeInk : offInk);
         UpdateEdgeIndicator();
     }
 
     /// <summary>Rotate the triangle toward the edge the panel will retreat to.</summary>
     private void UpdateEdgeIndicator()
     {
+        if (_closing) return;
         var edge = _isCollapsed
             ? _dockEdge
             : (IsLoaded ? ScreenUtil.NearestEdge(this) : DockEdge.Right);
@@ -1244,7 +1251,7 @@ public partial class MainWindow : Window
 
     private void ScheduleAutoHide(double seconds)
     {
-        if (_previewMode || !_state.Settings.AutoHide || _isCollapsed || _suppressAutoHide ||
+        if (_previewMode || _closing || !_state.Settings.AutoHide || _isCollapsed || _suppressAutoHide ||
             _settingsOpen || _noteMenuOpen || _resizingWindow)
             return;
 
@@ -1261,7 +1268,7 @@ public partial class MainWindow : Window
     private void AutoHideTimer_Tick(object? sender, EventArgs e)
     {
         _autoHideTimer.Stop();
-        if (_previewMode || !_state.Settings.AutoHide || _isCollapsed) return;
+        if (_previewMode || _closing || !_state.Settings.AutoHide || _isCollapsed) return;
         if (IsMouseOver || _settingsOpen || _noteMenuOpen || _resizingWindow ||
             _pendingDelete != null || _notes.Any(n => n.IsEditing) ||
             Application.Current?.Windows.OfType<Window>().Any(w => !ReferenceEquals(w, this) && w.IsVisible) == true)
@@ -1275,7 +1282,7 @@ public partial class MainWindow : Window
 
     private void CollapsePanel()
     {
-        if (_isCollapsed || _previewMode) return;
+        if (_isCollapsed || _previewMode || _closing) return;
         _dockEdge = ScreenUtil.DetectDock(this);
         if (_dockEdge == DockEdge.None) return;
 

@@ -157,10 +157,12 @@
                                 HorizontalAlignment="Right" VerticalAlignment="Center">
                         <Button x:Name="AutoHideButton" Style="{StaticResource IconButtonStyle}"
                                 Margin="0,0,2,0" ToolTip="自动收起" Click="AutoHideButton_Click">
-                            <Path x:Name="AutoHideGlyph" Width="11" Height="9" Stretch="Uniform"
-                                  Fill="#3B3C42" Data="M0,0 L12,0 L6,10 Z" RenderTransformOrigin="0.5,0.5">
+                            <Path x:Name="AutoHideGlyph" Width="12" Height="10.4" Stretch="Fill"
+                                  Fill="#3B3C42"
+                                  Data="M4.2,3.4 L11.8,3.4 A2.2,2.2 0 0 1 12.9,5.306 L9.1,11.894 A2.2,2.2 0 0 1 6.9,11.894 L3.1,5.306 A2.2,2.2 0 0 1 4.2,3.4 Z"
+                                  RenderTransformOrigin="0.5,0.5">
                                 <Path.RenderTransform>
-                                    <RotateTransform x:Name="AutoHideGlyphRotation" CenterX="5.5" CenterY="4.5" />
+                                    <RotateTransform x:Name="AutoHideGlyphRotation" />
                                 </Path.RenderTransform>
                             </Path>
                         </Button>
