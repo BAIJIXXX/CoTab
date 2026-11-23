@@ -157,6 +157,10 @@ public partial class MainWindow : Window
                 StartupService.RefreshIfEnabled();
         }
 
+        // The board has no taskbar entry, so the tray icon is the always-available
+        // way to bring it back when it is behind other windows.
+        ShowTrayIcon();
+
         _dockEdge = ScreenUtil.DetectDock(this);
         UpdateEdgeIndicator();
         if (_dockEdge != DockEdge.None)
@@ -1514,7 +1518,6 @@ public partial class MainWindow : Window
     {
         if (!_isCollapsed || _previewMode || _closing || _animating) return;
         _isCollapsed = false;
-        HideTrayIcon();
         CollapsedTab.Visibility = Visibility.Collapsed;
         CollapsedTab.RenderTransform = null;
         CollapsedTab.Opacity = 1;
@@ -1587,7 +1590,6 @@ public partial class MainWindow : Window
         WindowRoot.IsHitTestVisible = true;
         UpdateLayout();
         ClampNotesToCanvas();
-        HideTrayIcon();
         _dockEdge = ScreenUtil.DetectDock(this);
         UpdateEmptyHint();
         UpdateEdgeIndicator();
@@ -1649,18 +1651,13 @@ public partial class MainWindow : Window
         if (_trayIcon != null) _trayIcon.Visible = true;
     }
 
-    private void HideTrayIcon()
-    {
-        if (_trayIcon != null) _trayIcon.Visible = false;
-    }
-
     private void EnsureTrayIcon()
     {
         if (_trayIcon != null) return;
 
         _trayDrawingIcon = LoadTrayIcon();
         _trayMenu = new Forms.ContextMenuStrip();
-        var expand = new Forms.ToolStripMenuItem("展开便签板");
+        var expand = new Forms.ToolStripMenuItem("显示便签板");
         expand.Click += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(ExpandFromTray));
         var add = new Forms.ToolStripMenuItem("新建便签");
         add.Click += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
