@@ -48,6 +48,23 @@ public static class ScreenUtil
         return best.Distance <= threshold ? best.Edge : DockEdge.None;
     }
 
+    /// <summary>The nearest work-area edge, regardless of the dock threshold.</summary>
+    public static DockEdge NearestEdge(Window window)
+    {
+        var win = GetWindowPixels(window);
+        var work = GetWorkAreaPixels(window);
+
+        var distances = new[]
+        {
+            (Edge: DockEdge.Left, Distance: Math.Abs(win.Left - work.Left)),
+            (Edge: DockEdge.Right, Distance: Math.Abs(work.Right - win.Right)),
+            (Edge: DockEdge.Top, Distance: Math.Abs(win.Top - work.Top)),
+            (Edge: DockEdge.Bottom, Distance: Math.Abs(work.Bottom - win.Bottom))
+        };
+
+        return distances.OrderBy(d => d.Distance).First().Edge;
+    }
+
     /// <summary>Moves the window so the requested edge sits exactly on the monitor work-area edge.</summary>
     public static void SnapToDock(Window window, DockEdge edge)
     {

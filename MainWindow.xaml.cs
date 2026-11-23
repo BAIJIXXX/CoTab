@@ -11,15 +11,18 @@ using CoTab.Helpers;
 using CoTab.Models;
 using CoTab.Services;
 using Microsoft.Win32;
+using Drawing = System.Drawing;
+using Forms = System.Windows.Forms;
 
 namespace CoTab;
 
 public partial class MainWindow : Window
 {
-    private const double PanelMarginDip = 16;
-    private const double CollapsedStripDip = 10;
+    private const double CollapsedTabThicknessDip = 14;
+    private const double CollapsedTabLengthDip = 88;
     private const double MinimumWindowWidth = 360;
     private const double MinimumWindowHeight = 420;
+    private static readonly Color AccentTint = Color.FromArgb(255, 0xFF, 0xD6, 0x6B);
 
     private readonly AppState _state;
     private readonly bool _previewMode;
@@ -45,9 +48,14 @@ public partial class MainWindow : Window
     private Rect _resizeStartBounds;
     private double _expandedLeft;
     private double _expandedTop;
+    private double _expandedWidth;
+    private double _expandedHeight;
     private DockEdge _dockEdge;
     private NoteControl? _pendingDelete;
     private Action? _undoAction;
+    private Forms.NotifyIcon? _trayIcon;
+    private Forms.ContextMenuStrip? _trayMenu;
+    private Drawing.Icon? _trayDrawingIcon;
 
     public MainWindow() : this(new AppState())
     {
@@ -75,6 +83,7 @@ public partial class MainWindow : Window
         UpdateEmptyHint();
         Topmost = _state.Settings.AlwaysOnTop;
         _uiUpdating = false;
+        RefreshChromeState();
 
         if (!_previewMode)
         {
@@ -93,6 +102,8 @@ public partial class MainWindow : Window
             PreviewMouseMove += Window_PreviewMouseMove;
             PreviewMouseLeftButtonUp += Window_PreviewMouseLeftButtonUp;
             KeyDown += Window_KeyDown;
+            LocationChanged += (_, _) => UpdateEdgeIndicator();
+            SizeChanged += (_, _) => UpdateEdgeIndicator();
         }
     }
 
@@ -137,6 +148,7 @@ public partial class MainWindow : Window
         }
 
         _dockEdge = ScreenUtil.DetectDock(this);
+        UpdateEdgeIndicator();
         if (_dockEdge != DockEdge.None)
             ScheduleAutoHide(1.8);
     }
@@ -149,12 +161,21 @@ public partial class MainWindow : Window
         _saveTimer.Stop();
         _autoHideTimer.Stop();
         SaveNow();
+        DisposeTrayIcon();
     }
 
     private void Window_DpiChanged(object sender, DpiChangedEventArgs e)
     {
         if (_previewMode) return;
-        ClampNotesToCanvas();
+        if (_isCollapsed)
+        {
+            SizeAndPositionCollapsedTab(_dockEdge);
+        }
+        else
+        {
+            ClampNotesToCanvas();
+        }
+        UpdateEdgeIndicator();
         QueueSave();
     }
 
@@ -197,6 +218,8 @@ public partial class MainWindow : Window
 
         SettingsGlyph.Fill = new SolidColorBrush(settingsInk);
         CloseGlyph.Stroke = new SolidColorBrush(closeInk);
+        PinGlyph.Fill = new SolidColorBrush(settingsInk);
+        AutoHideGlyph.Fill = new SolidColorBrush(settingsInk);
         AddNotePlus.Foreground = new SolidColorBrush(addInk);
         AddNoteText.Foreground = new SolidColorBrush(addInk);
 
@@ -206,6 +229,13 @@ public partial class MainWindow : Window
         TrashGlyph.Stroke = new SolidColorBrush(muted);
         TrashLabel.Foreground = new SolidColorBrush(muted);
         TrashZone.BorderBrush = Brushes.Transparent;
+
+        CollapsedTab.Background = new SolidColorBrush(ColorUtil.WithAlpha(panel, Math.Clamp(settings.PanelOpacity, 0.72, 0.97)));
+        CollapsedTab.BorderBrush = new SolidColorBrush(darkPanel
+            ? Color.FromArgb(54, 255, 255, 255)
+            : Color.FromArgb(36, 0, 0, 0));
+        foreach (var dot in CollapsedDots.Children.OfType<System.Windows.Shapes.Ellipse>())
+            dot.Fill = new SolidColorBrush(ColorUtil.WithAlpha(settingsInk, 0.62));
 
         var app = Application.Current;
         if (app != null)
@@ -219,9 +249,9 @@ public partial class MainWindow : Window
                 : Color.FromArgb(28, 0, 0, 0));
         }
 
-        CollapsedHint.Background = new SolidColorBrush(Color.FromArgb(90, 0, 0, 0));
         ApplyInkHalo();
         ApplyChromePills();
+        RefreshChromeState();
     }
 
     /// <summary>
@@ -246,6 +276,8 @@ public partial class MainWindow : Window
 
         SettingsGlyph.Effect = halo;
         CloseGlyph.Effect = halo;
+        PinGlyph.Effect = halo;
+        AutoHideGlyph.Effect = halo;
         AddNotePlus.Effect = halo;
         AddNoteText.Effect = halo;
         EmptyHintGlyph.Effect = halo;
@@ -300,6 +332,7 @@ public partial class MainWindow : Window
 
         ApplyInkHalo();
         ApplyChromePills();
+        RefreshChromeState();
     }
 
     private static DrawingBrush CreatePatternBrush(bool dots, Color ink)
@@ -591,7 +624,94 @@ public partial class MainWindow : Window
         SettingsButton.ClearValue(Control.BackgroundProperty);
         CloseButton.ClearValue(Control.BackgroundProperty);
         AddNoteButton.ClearValue(Control.BackgroundProperty);
+        PinButton.ClearValue(Control.BackgroundProperty);
+        AutoHideButton.ClearValue(Control.BackgroundProperty);
         ResetTrashVisual();
+    }
+
+    /// <summary>Pin and auto-collapse buttons are two-state: tinted when enabled, plain when off.</summary>
+    private void RefreshChromeState()
+    {
+        if (_uiUpdating) return;
+        var settings = _state.Settings;
+        var panel = ColorUtil.Parse(settings.PanelColor, Colors.White);
+        var darkPanel = ColorUtil.Luminance(panel) < 0.46;
+        var ink = ColorUtil.Parse(settings.SettingsColor, ColorUtil.Parse("#3B3C42", Colors.Black));
+        var muted = ColorUtil.DeriveMuted(ink, darkPanel ? 0.28 : 0.42);
+        var imagePill = ChromePillBrush();
+        var activePill = new SolidColorBrush(Color.FromArgb(46, AccentTint.R, AccentTint.G, AccentTint.B));
+
+        PinButton.Background = settings.AlwaysOnTop ? activePill : (imagePill ?? Brushes.Transparent);
+        AutoHideButton.Background = settings.AutoHide ? activePill : (imagePill ?? Brushes.Transparent);
+        PinGlyph.Fill = new SolidColorBrush(settings.AlwaysOnTop ? ink : muted);
+        AutoHideGlyph.Fill = new SolidColorBrush(settings.AutoHide ? ink : muted);
+        UpdateEdgeIndicator();
+    }
+
+    /// <summary>Rotate the triangle toward the edge the panel will retreat to.</summary>
+    private void UpdateEdgeIndicator()
+    {
+        var edge = _isCollapsed
+            ? _dockEdge
+            : (IsLoaded ? ScreenUtil.NearestEdge(this) : DockEdge.Right);
+        var angle = edge switch
+        {
+            DockEdge.Bottom => 0.0,
+            DockEdge.Left => 90.0,
+            DockEdge.Top => 180.0,
+            DockEdge.Right => 270.0,
+            _ => 0.0
+        };
+        AutoHideGlyphRotation.Angle = angle;
+
+        var direction = edge switch
+        {
+            DockEdge.Bottom => "下",
+            DockEdge.Left => "左",
+            DockEdge.Top => "上",
+            DockEdge.Right => "右",
+            _ => "最近"
+        };
+        AutoHideButton.ToolTip = _state.Settings.AutoHide
+            ? $"自动收起：开（将收起到屏幕{direction}侧）"
+            : "自动收起：关";
+    }
+
+    private void PinButton_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _state.Settings;
+        settings.AlwaysOnTop = !settings.AlwaysOnTop;
+        Topmost = settings.AlwaysOnTop;
+        _uiUpdating = true;
+        TopmostSwitch.IsChecked = settings.AlwaysOnTop;
+        _uiUpdating = false;
+        if (Topmost) Activate();
+        RefreshChromeState();
+        QueueSave();
+        ShowToast(settings.AlwaysOnTop ? "已保持置顶" : "已取消置顶");
+    }
+
+    private void AutoHideButton_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = _state.Settings;
+        settings.AutoHide = !settings.AutoHide;
+        _uiUpdating = true;
+        AutoHideSwitch.IsChecked = settings.AutoHide;
+        _uiUpdating = false;
+
+        if (settings.AutoHide)
+        {
+            ScheduleAutoHide(1.4);
+        }
+        else
+        {
+            _autoHideTimer.Stop();
+            if (_isCollapsed) ExpandPanel();
+        }
+
+        RefreshChromeState();
+        QueueSave();
+        ShowToast(settings.AutoHide ? "已开启自动收起" : "已关闭自动收起");
     }
 
     private void FinishNoteDrag(NoteControl note)
@@ -781,6 +901,7 @@ public partial class MainWindow : Window
         {
             _uiUpdating = false;
         }
+        RefreshChromeState();
     }
 
     private void ShowSettings()
@@ -914,6 +1035,7 @@ public partial class MainWindow : Window
             _autoHideTimer.Stop();
             if (_isCollapsed) ExpandPanel();
         }
+        RefreshChromeState();
         QueueSave();
     }
 
@@ -923,6 +1045,7 @@ public partial class MainWindow : Window
         _state.Settings.AlwaysOnTop = TopmostSwitch.IsChecked == true;
         Topmost = _state.Settings.AlwaysOnTop;
         if (Topmost) Activate();
+        RefreshChromeState();
         QueueSave();
     }
 
@@ -972,12 +1095,45 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Clicking bare panel space (not a note) should commit/exit the active editor.
+        if (!IsInsideNote(e.OriginalSource as DependencyObject))
+            EndAllEdits();
+
         _suppressAutoHide = true;
         _autoHideTimer.Stop();
         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
             _suppressAutoHide = false;
         }));
+    }
+
+    private static bool IsInsideNote(DependencyObject? source)
+    {
+        while (source != null)
+        {
+            if (source is NoteControl) return true;
+            source = source switch
+            {
+                FrameworkContentElement content => content.Parent,
+                _ => VisualTreeHelper.GetParent(source)
+            };
+        }
+        return false;
+    }
+
+    private void EndAllEdits()
+    {
+        var edited = false;
+        foreach (var note in _notes.Where(n => n.IsEditing).ToList())
+        {
+            note.EndEdit();
+            edited = true;
+        }
+        if (edited)
+        {
+            _suppressAutoHide = false;
+            if (_state.Settings.AutoHide) ScheduleAutoHide(1.2);
+        }
     }
 
     private void TitleDragSurface_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -997,6 +1153,7 @@ public partial class MainWindow : Window
         _dockEdge = ScreenUtil.DetectDock(this);
         if (_dockEdge != DockEdge.None)
             ScreenUtil.SnapToDock(this, _dockEdge);
+        UpdateEdgeIndicator();
 
         _state.Window.Left = Left;
         _state.Window.Top = Top;
@@ -1050,6 +1207,7 @@ public partial class MainWindow : Window
 
         _dockEdge = ScreenUtil.DetectDock(this);
         if (_dockEdge != DockEdge.None) ScreenUtil.SnapToDock(this, _dockEdge);
+        UpdateEdgeIndicator();
         _suppressAutoHide = false;
         if (_state.Settings.AutoHide) ScheduleAutoHide(1.3);
         e.Handled = true;
@@ -1123,83 +1281,214 @@ public partial class MainWindow : Window
 
         _expandedLeft = Left;
         _expandedTop = Top;
-
-        var dpi = VisualTreeHelper.GetDpi(this);
-        var work = ScreenUtil.GetWorkAreaPixels(this);
-        var win = ScreenUtil.GetWindowPixels(this);
-
-        var marginX = PanelMarginDip * dpi.DpiScaleX;
-        var marginY = PanelMarginDip * dpi.DpiScaleY;
-        var stripX = CollapsedStripDip * dpi.DpiScaleX;
-        var stripY = CollapsedStripDip * dpi.DpiScaleY;
-
-        switch (_dockEdge)
-        {
-            case DockEdge.Right:
-                Left += (work.Right - stripX - marginX - win.Left) / dpi.DpiScaleX;
-                break;
-            case DockEdge.Left:
-                Left += (work.Left + stripX + marginX - win.Width - win.Left) / dpi.DpiScaleX;
-                break;
-            case DockEdge.Top:
-                Top += (work.Top + stripY + marginY - win.Height - win.Top) / dpi.DpiScaleY;
-                break;
-            case DockEdge.Bottom:
-                Top += (work.Bottom - stripY - marginY - win.Top) / dpi.DpiScaleY;
-                break;
-        }
+        _expandedWidth = Width;
+        _expandedHeight = Height;
 
         _isCollapsed = true;
         _autoHideTimer.Stop();
-        PositionCollapsedHint();
-        CollapsedHint.Visibility = Visibility.Visible;
+        // The compact tab is far smaller than the expanded board; the window's
+        // normal minimums must not clamp it back to a full-size rectangle.
+        MinWidth = 0;
+        MinHeight = 0;
+        PanelContainer.Visibility = Visibility.Collapsed;
+        ResizeLayer.Visibility = Visibility.Collapsed;
+        CollapsedTab.Visibility = Visibility.Visible;
+        ConfigureCollapsedTab(_dockEdge);
+        SizeAndPositionCollapsedTab(_dockEdge);
         UpdateEmptyHint();
+        ShowTrayIcon();
+        UpdateEdgeIndicator();
     }
 
-    private void PositionCollapsedHint()
+    /// <summary>
+    /// The collapsed state is a small fixed-size tab, not a sliver of the full
+    /// panel: widening or heightening the board must not make the tab larger.
+    /// </summary>
+    private void ConfigureCollapsedTab(DockEdge edge)
     {
-        CollapsedHint.Width = 3;
-        CollapsedHint.Height = 92;
-        CollapsedHint.Margin = new Thickness(0);
-        CollapsedHint.HorizontalAlignment = HorizontalAlignment.Left;
-        CollapsedHint.VerticalAlignment = VerticalAlignment.Center;
+        CollapsedTab.ToolTip = "点击展开便签板";
+        CollapsedTab.Width = double.NaN;
+        CollapsedTab.Height = double.NaN;
+        CollapsedTab.HorizontalAlignment = HorizontalAlignment.Stretch;
+        CollapsedTab.VerticalAlignment = VerticalAlignment.Stretch;
 
-        switch (_dockEdge)
+        switch (edge)
         {
             case DockEdge.Right:
-                CollapsedHint.Margin = new Thickness(3, 0, 0, 0);
+                CollapsedTab.CornerRadius = new CornerRadius(7, 0, 0, 7);
+                CollapsedDots.Orientation = Orientation.Vertical;
                 break;
             case DockEdge.Left:
-                CollapsedHint.HorizontalAlignment = HorizontalAlignment.Right;
-                CollapsedHint.Margin = new Thickness(0, 0, 3, 0);
+                CollapsedTab.CornerRadius = new CornerRadius(0, 7, 7, 0);
+                CollapsedDots.Orientation = Orientation.Vertical;
                 break;
             case DockEdge.Top:
-                CollapsedHint.Width = 92;
-                CollapsedHint.Height = 3;
-                CollapsedHint.HorizontalAlignment = HorizontalAlignment.Center;
-                CollapsedHint.VerticalAlignment = VerticalAlignment.Bottom;
-                CollapsedHint.Margin = new Thickness(0, 0, 0, 3);
+                CollapsedTab.CornerRadius = new CornerRadius(0, 0, 7, 7);
+                CollapsedDots.Orientation = Orientation.Horizontal;
                 break;
-            case DockEdge.Bottom:
-                CollapsedHint.Width = 92;
-                CollapsedHint.Height = 3;
-                CollapsedHint.HorizontalAlignment = HorizontalAlignment.Center;
-                CollapsedHint.VerticalAlignment = VerticalAlignment.Top;
-                CollapsedHint.Margin = new Thickness(0, 3, 0, 0);
+            default:
+                CollapsedTab.CornerRadius = new CornerRadius(7, 7, 0, 0);
+                CollapsedDots.Orientation = Orientation.Horizontal;
                 break;
         }
+
+        var verticalDots = CollapsedDots.Orientation == Orientation.Vertical;
+        foreach (var dot in CollapsedDots.Children.OfType<System.Windows.Shapes.Ellipse>())
+            dot.Margin = verticalDots ? new Thickness(0, 1.5, 0, 1.5) : new Thickness(1.5, 0, 1.5, 0);
+    }
+
+    private void SizeAndPositionCollapsedTab(DockEdge edge)
+    {
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var work = ScreenUtil.GetWorkAreaPixels(this);
+        var origin = PointToScreen(new Point(0, 0));
+        var vertical = edge is DockEdge.Left or DockEdge.Right;
+
+        Width = vertical ? CollapsedTabThicknessDip : CollapsedTabLengthDip;
+        Height = vertical ? CollapsedTabLengthDip : CollapsedTabThicknessDip;
+
+        var tabWidth = Width * dpi.DpiScaleX;
+        var tabHeight = Height * dpi.DpiScaleY;
+        var centeredLeft = work.Left + Math.Max(0, (work.Width - tabWidth) / 2);
+        var centeredTop = work.Top + Math.Max(0, (work.Height - tabHeight) / 2);
+
+        var targetLeft = edge switch
+        {
+            DockEdge.Right => work.Right - tabWidth,
+            DockEdge.Left => work.Left,
+            _ => centeredLeft
+        };
+        var targetTop = edge switch
+        {
+            DockEdge.Bottom => work.Bottom - tabHeight,
+            DockEdge.Top => work.Top,
+            _ => centeredTop
+        };
+
+        Left += (targetLeft - origin.X) / dpi.DpiScaleX;
+        Top += (targetTop - origin.Y) / dpi.DpiScaleY;
+        UpdateLayout();
     }
 
     private void ExpandPanel()
     {
         if (!_isCollapsed) return;
         _isCollapsed = false;
-        CollapsedHint.Visibility = Visibility.Collapsed;
+        CollapsedTab.Visibility = Visibility.Collapsed;
+        PanelContainer.Visibility = Visibility.Visible;
+        ResizeLayer.Visibility = Visibility.Visible;
+
+        MinWidth = MinimumWindowWidth;
+        MinHeight = MinimumWindowHeight;
+        Width = Math.Max(MinimumWindowWidth, _expandedWidth);
+        Height = Math.Max(MinimumWindowHeight, _expandedHeight);
         Left = _expandedLeft;
         Top = _expandedTop;
+        UpdateLayout();
+        ClampNotesToCanvas();
+        HideTrayIcon();
         _dockEdge = ScreenUtil.DetectDock(this);
         UpdateEmptyHint();
+        UpdateEdgeIndicator();
         ScheduleAutoHide(1.8);
+    }
+
+    // -------------------------------------------------------------------- tray
+
+    private void ShowTrayIcon()
+    {
+        if (_previewMode) return;
+        EnsureTrayIcon();
+        if (_trayIcon != null) _trayIcon.Visible = true;
+    }
+
+    private void HideTrayIcon()
+    {
+        if (_trayIcon != null) _trayIcon.Visible = false;
+    }
+
+    private void EnsureTrayIcon()
+    {
+        if (_trayIcon != null) return;
+
+        _trayDrawingIcon = LoadTrayIcon();
+        _trayMenu = new Forms.ContextMenuStrip();
+        var expand = new Forms.ToolStripMenuItem("展开便签板");
+        expand.Click += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(ExpandFromTray));
+        var add = new Forms.ToolStripMenuItem("新建便签");
+        add.Click += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
+        {
+            ExpandFromTray();
+            AddNote();
+        }));
+        var exit = new Forms.ToolStripMenuItem("退出");
+        exit.Click += (_, _) => Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(Close));
+        _trayMenu.Items.Add(expand);
+        _trayMenu.Items.Add(add);
+        _trayMenu.Items.Add(new Forms.ToolStripSeparator());
+        _trayMenu.Items.Add(exit);
+
+        _trayIcon = new Forms.NotifyIcon
+        {
+            Icon = _trayDrawingIcon,
+            Text = "CoTab 便签板",
+            ContextMenuStrip = _trayMenu,
+            Visible = false
+        };
+        _trayIcon.MouseClick += (_, args) =>
+        {
+            if (args.Button == Forms.MouseButtons.Left)
+                Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(ExpandFromTray));
+        };
+        _trayIcon.DoubleClick += (_, _) =>
+            Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(ExpandFromTray));
+    }
+
+    private Drawing.Icon LoadTrayIcon()
+    {
+        try
+        {
+            var resource = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/app.ico"));
+            if (resource?.Stream != null) return new Drawing.Icon(resource.Stream);
+        }
+        catch
+        {
+            // Fall through to the executable icon.
+        }
+
+        try
+        {
+            var path = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(path))
+                return Drawing.Icon.ExtractAssociatedIcon(path) ?? (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
+        }
+        catch
+        {
+            // Fall through to the system icon.
+        }
+
+        return (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
+    }
+
+    private void ExpandFromTray()
+    {
+        if (_isCollapsed) ExpandPanel();
+        if (!IsVisible) Show();
+        Activate();
+    }
+
+    private void DisposeTrayIcon()
+    {
+        if (_trayIcon != null)
+        {
+            _trayIcon.Visible = false;
+            _trayIcon.Dispose();
+            _trayIcon = null;
+        }
+        _trayMenu?.Dispose();
+        _trayMenu = null;
+        _trayDrawingIcon?.Dispose();
+        _trayDrawingIcon = null;
     }
 
     // ---------------------------------------------------------------- keyboard
@@ -1265,10 +1554,18 @@ public partial class MainWindow : Window
         {
             _state.Window.Left = Left;
             _state.Window.Top = Top;
+            _state.Window.Width = Width;
+            _state.Window.Height = Height;
             _state.Window.HasPosition = true;
         }
-        _state.Window.Width = Width;
-        _state.Window.Height = Height;
+        else
+        {
+            _state.Window.Left = _expandedLeft;
+            _state.Window.Top = _expandedTop;
+            _state.Window.Width = _expandedWidth;
+            _state.Window.Height = _expandedHeight;
+            _state.Window.HasPosition = true;
+        }
 
         StateStore.Save(_state);
     }
@@ -1298,7 +1595,14 @@ public partial class MainWindow : Window
                 if (_notes.Count > 0) _notes[0].BeginEdit();
                 break;
             case "collapsed":
-                CollapsedHint.Visibility = Visibility.Visible;
+                PanelContainer.Visibility = Visibility.Collapsed;
+                ResizeLayer.Visibility = Visibility.Collapsed;
+                CollapsedTab.Visibility = Visibility.Visible;
+                ConfigureCollapsedTab(DockEdge.Right);
+                CollapsedTab.Width = CollapsedTabThicknessDip;
+                CollapsedTab.Height = CollapsedTabLengthDip;
+                CollapsedTab.HorizontalAlignment = HorizontalAlignment.Right;
+                CollapsedTab.VerticalAlignment = VerticalAlignment.Center;
                 break;
         }
 

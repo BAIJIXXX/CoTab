@@ -6,7 +6,7 @@
         MinWidth="360" MinHeight="420"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize" WindowStartupLocation="Manual"
-        Topmost="True" ShowInTaskbar="True"
+        Topmost="True" ShowInTaskbar="False"
         FontFamily="Microsoft YaHei UI" FontSize="12.5"
         Language="zh-CN" UseLayoutRounding="True" SnapsToDevicePixels="True"
         TextOptions.TextFormattingMode="Display"
@@ -153,13 +153,31 @@
                         <Path x:Name="SettingsGlyph" Width="16" Height="16" Stretch="Uniform" Fill="#3B3C42"
                               Data="M12,1.8 L14.1,4.1 L17.2,3.5 L18.3,6.4 L21.2,7.6 L20.7,10.7 L23,12.8 L20.7,14.9 L21.2,18 L18.3,19.2 L17.2,22.1 L14.1,21.5 L12,23.8 L9.9,21.5 L6.8,22.1 L5.7,19.2 L2.8,18 L3.3,14.9 L1,12.8 L3.3,10.7 L2.8,7.6 L5.7,6.4 L6.8,3.5 L9.9,4.1 Z M12,7.6 A5.2,5.2 0 1 0 12,18 A5.2,5.2 0 1 0 12,7.6 Z" />
                     </Button>
-                    <Button x:Name="CloseButton" Style="{StaticResource IconButtonStyle}"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" ToolTip="关闭"
-                            Click="CloseButton_Click">
-                        <Path x:Name="CloseGlyph" Width="13" Height="13" Stretch="Uniform" Stroke="#3B3C42"
-                              StrokeThickness="1.45" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                              Data="M2,2 L12,12 M12,2 L2,12" />
-                    </Button>
+                    <StackPanel x:Name="TopRightControls" Orientation="Horizontal"
+                                HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="AutoHideButton" Style="{StaticResource IconButtonStyle}"
+                                Margin="0,0,2,0" ToolTip="自动收起" Click="AutoHideButton_Click">
+                            <Path x:Name="AutoHideGlyph" Width="11" Height="9" Stretch="Uniform"
+                                  Fill="#3B3C42" Data="M0,0 L12,0 L6,10 Z" RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform x:Name="AutoHideGlyphRotation" CenterX="5.5" CenterY="4.5" />
+                                </Path.RenderTransform>
+                            </Path>
+                        </Button>
+                        <Button x:Name="PinButton" Style="{StaticResource IconButtonStyle}"
+                                Margin="0,0,2,0" ToolTip="保持置顶" Click="PinButton_Click">
+                            <Path x:Name="PinGlyph" Width="14" Height="14" Stretch="Uniform"
+                                  Fill="#3B3C42"
+                                  Data="M16,9 V4 H17 V2 H7 V4 H8 V9 L6,11 V13 H11 V22 H13 V13 H18 V11 Z" />
+                        </Button>
+                        <Button x:Name="CloseButton" Style="{StaticResource IconButtonStyle}"
+                                VerticalAlignment="Center" ToolTip="关闭"
+                                Click="CloseButton_Click">
+                            <Path x:Name="CloseGlyph" Width="13" Height="13" Stretch="Uniform" Stroke="#3B3C42"
+                                  StrokeThickness="1.45" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M2,2 L12,12 M12,2 L2,12" />
+                        </Button>
+                    </StackPanel>
                 </Grid>
 
                 <Grid x:Name="BottomBar" Height="44" VerticalAlignment="Bottom">
@@ -310,10 +328,17 @@
                     <TextBlock x:Name="ToastText" Text="" Foreground="#F4F4F6" FontSize="11.5" />
                 </Border>
             </Grid>
-
-            <Border x:Name="CollapsedHint" Width="3" Height="92" CornerRadius="1.5" Background="#66000000"
-                    Visibility="Collapsed" HorizontalAlignment="Left" Margin="3,0,0,0" IsHitTestVisible="False" />
         </Grid>
+
+        <Border x:Name="CollapsedTab" Visibility="Collapsed" CornerRadius="7"
+                BorderThickness="1" Background="#F2FFFFFF" BorderBrush="#24000000" Cursor="Hand">
+            <StackPanel x:Name="CollapsedDots" Orientation="Vertical"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Ellipse Width="2.4" Height="2.4" Fill="#88000000" Margin="0,1.5" />
+                <Ellipse Width="2.4" Height="2.4" Fill="#88000000" Margin="0,1.5" />
+                <Ellipse Width="2.4" Height="2.4" Fill="#88000000" Margin="0,1.5" />
+            </StackPanel>
+        </Border>
 
         <Grid x:Name="ResizeLayer">
             <Border Height="20" VerticalAlignment="Top" Background="Transparent" Cursor="SizeNS"
