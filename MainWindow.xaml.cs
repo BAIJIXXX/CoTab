@@ -66,6 +66,7 @@ public partial class MainWindow : Window
     private Forms.NotifyIcon? _trayIcon;
     private Forms.ContextMenuStrip? _trayMenu;
     private Drawing.Icon? _trayDrawingIcon;
+    private DispatcherTimer? _trayStartupTimer;
 
     public MainWindow() : this(new AppState())
     {
@@ -158,8 +159,11 @@ public partial class MainWindow : Window
         }
 
         // The board has no taskbar entry, so the tray icon is the always-available
-        // way to bring it back when it is behind other windows.
-        ShowTrayIcon();
+        // way to bring it back when it is behind other windows. The notification
+        // area can be unavailable for a moment while the shell starts, so add it
+        // now and re-register it once the dispatcher is idle and once more shortly
+        // after startup.
+        ScheduleTrayStartup();
 
         _dockEdge = ScreenUtil.DetectDock(this);
         UpdateEdgeIndicator();
@@ -178,6 +182,7 @@ public partial class MainWindow : Window
         _saveTimer.Stop();
         _autoHideTimer.Stop();
         _toastTimer.Stop();
+        _trayStartupTimer?.Stop();
         StopAnimations();
         foreach (var note in _notes.Where(n => n.IsEditing).ToList())
             note.EndEdit();
@@ -1644,11 +1649,81 @@ public partial class MainWindow : Window
 
     // -------------------------------------------------------------------- tray
 
+    private void ScheduleTrayStartup()
+    {
+        ShowTrayIcon();
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
+        {
+            ReassertTrayIcon();
+            StartTrayStartupTimer();
+        }));
+    }
+
+    private void StartTrayStartupTimer()
+    {
+        if (_closing || _trayStartupTimer != null) return;
+        _trayStartupTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.2) };
+        _trayStartupTimer.Tick += (_, _) =>
+        {
+            _trayStartupTimer?.Stop();
+            ReassertTrayIcon();
+            ShowTrayHintOnce();
+        };
+        _trayStartupTimer.Start();
+    }
+
+    private void ReassertTrayIcon()
+    {
+        if (_previewMode || _closing) return;
+        try
+        {
+            ShowTrayIcon();
+            if (_trayIcon != null)
+            {
+                // Force a fresh Shell_NotifyIcon(NIM_ADD). Some shells briefly
+                // reject icons registered during WPF's startup before the message
+                // loop is pumping.
+                _trayIcon.Visible = false;
+                _trayIcon.Visible = true;
+            }
+            StateStore.Log($"托盘图标已注册: visible={_trayIcon?.Visible}, interactive={Environment.UserInteractive}");
+        }
+        catch (Exception ex)
+        {
+            StateStore.Log("托盘图标注册失败: " + ex);
+        }
+    }
+
+    private void ShowTrayHintOnce()
+    {
+        if (_closing || _state.Settings.TrayHintShown || _trayIcon == null) return;
+        try
+        {
+            _trayIcon.ShowBalloonTip(4200, "CoTab 便签板",
+                "已启动。图标在右下角系统托盘的 ^ 溢出区，可拖出来固定。",
+                Forms.ToolTipIcon.Info);
+        }
+        catch
+        {
+            // Notifications can be disabled; the icon is still available.
+        }
+        _state.Settings.TrayHintShown = true;
+        QueueSave();
+    }
+
     private void ShowTrayIcon()
     {
         if (_previewMode) return;
-        EnsureTrayIcon();
-        if (_trayIcon != null) _trayIcon.Visible = true;
+        try
+        {
+            EnsureTrayIcon();
+            if (_trayIcon != null) _trayIcon.Visible = true;
+        }
+        catch (Exception ex)
+        {
+            StateStore.Log("显示托盘图标失败: " + ex);
+            DisposeTrayIcon();
+        }
     }
 
     private void EnsureTrayIcon()
@@ -1692,8 +1767,12 @@ public partial class MainWindow : Window
     {
         try
         {
-            var resource = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/app.ico"));
-            if (resource?.Stream != null) return new Drawing.Icon(resource.Stream);
+            var resource = Application.GetResourceStream(new Uri("pack://application:,,,/Assets/tray.ico"));
+            if (resource?.Stream != null)
+            {
+                using var stream = resource.Stream;
+                return new Drawing.Icon(stream, Forms.SystemInformation.SmallIconSize);
+            }
         }
         catch
         {

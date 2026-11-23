@@ -31,6 +31,7 @@ public sealed class SettingsModel
 
     public bool TrashEnabled { get; set; } = true;
     public bool ConfirmTrashDelete { get; set; } = true;
+    public bool TrayHintShown { get; set; }
 
     public string NoteFillColor { get; set; } = "#FFF1B8";
     public string NoteFontColor { get; set; } = "#3D382B";
