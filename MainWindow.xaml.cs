@@ -36,6 +36,7 @@ public partial class MainWindow : Window
     private readonly bool _previewMode;
     private readonly List<NoteControl> _notes = new();
     private readonly Dictionary<string, ColorRow> _inkRows = new();
+    private SubBoardModel? _activeBoard;
 
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(450) };
     private readonly DispatcherTimer _autoHideTimer = new() { Interval = TimeSpan.FromSeconds(1.4) };
@@ -86,7 +87,7 @@ public partial class MainWindow : Window
         ShadowLayer.Visibility = Visibility.Collapsed;
 
         BuildSettingsRows();
-        RestoreNotes();
+        ApplyMode(reloadNotes: true);
         ApplyTheme();
         ApplyBackground();
         ApplyTrashVisibility();
@@ -243,6 +244,8 @@ public partial class MainWindow : Window
         var muted = ColorUtil.DeriveMuted(settingsInk, darkPanel ? 0.28 : 0.42);
 
         SettingsGlyph.Fill = new SolidColorBrush(settingsInk);
+        BackGlyph.Stroke = new SolidColorBrush(closeInk);
+        SidebarGlyph.Stroke = new SolidColorBrush(closeInk);
         CloseGlyph.Stroke = new SolidColorBrush(closeInk);
         PinGlyph.Fill = new SolidColorBrush(closeInk);
         AutoHideGlyph.Fill = new SolidColorBrush(closeInk);
@@ -255,6 +258,9 @@ public partial class MainWindow : Window
         TrashGlyph.Stroke = new SolidColorBrush(muted);
         TrashLabel.Foreground = new SolidColorBrush(muted);
         TrashZone.BorderBrush = Brushes.Transparent;
+        BoardHomeEmptyGlyph.BorderBrush = new SolidColorBrush(ColorUtil.WithAlpha(settingsInk, 0.4));
+        BoardHomeEmptyTitle.Foreground = new SolidColorBrush(settingsInk);
+        BoardHomeEmptySub.Foreground = new SolidColorBrush(muted);
 
         CollapsedTab.Background = new SolidColorBrush(ColorUtil.WithAlpha(panel, Math.Clamp(settings.PanelOpacity, 0.72, 0.97)));
         CollapsedTab.BorderBrush = new SolidColorBrush(darkPanel
@@ -273,6 +279,13 @@ public partial class MainWindow : Window
             app.Resources["PanelBorderBrush"] = new SolidColorBrush(darkPanel
                 ? Color.FromArgb(42, 255, 255, 255)
                 : Color.FromArgb(28, 0, 0, 0));
+        }
+
+        if (IsMultiBoard)
+        {
+            BuildBoardHome();
+            BuildBoardRail();
+            ApplyBoardSurfaceTheme();
         }
 
         ApplyInkHalo();
@@ -301,6 +314,8 @@ public partial class MainWindow : Window
         }
 
         SettingsGlyph.Effect = halo;
+        BackGlyph.Effect = halo;
+        SidebarGlyph.Effect = halo;
         CloseGlyph.Effect = halo;
         PinGlyph.Effect = halo;
         AutoHideGlyph.Effect = halo;
@@ -421,14 +436,38 @@ public partial class MainWindow : Window
 
     // ---------------------------------------------------------------- note board
 
-    private void RestoreNotes()
+    private bool IsMultiBoard => _state.Settings.Mode == AppMode.MultiBoard;
+    private bool IsBoardOpen => IsMultiBoard && _activeBoard != null;
+    private Canvas ActiveCanvas => IsBoardOpen ? BoardNotesCanvas : NotesCanvas;
+    private List<NoteModel> ActiveNoteModels => _activeBoard?.Notes ?? _state.Notes;
+
+    private void ReloadNotes()
     {
-        foreach (var model in _state.Notes.ToList())
+        foreach (var note in _notes.ToList())
         {
+            if (note.IsEditing) note.EndEdit();
+            if (note.Parent is Canvas oldCanvas) oldCanvas.Children.Remove(note);
+        }
+        _notes.Clear();
+
+        if (IsMultiBoard && !IsBoardOpen)
+        {
+            UpdateBoardHeader();
+            UpdateEmptyHint();
+            return;
+        }
+
+        var canvas = ActiveCanvas;
+        foreach (var model in ActiveNoteModels.ToList())
+        {
+            EnsureNoteInCanvas(model);
             var note = CreateNote(model);
-            NotesCanvas.Children.Add(note);
+            canvas.Children.Add(note);
             _notes.Add(note);
         }
+
+        UpdateBoardHeader();
+        UpdateEmptyHint();
     }
 
     private NoteControl CreateNote(NoteModel model)
@@ -475,11 +514,18 @@ public partial class MainWindow : Window
 
     private void AddNote()
     {
+        if (IsMultiBoard && !IsBoardOpen)
+        {
+            AddBoard();
+            return;
+        }
+
         if (_isCollapsed) ExpandPanel();
         if (_settingsOpen) HideSettings();
 
-        var canvasWidth = NotesCanvas.ActualWidth > 0 ? NotesCanvas.ActualWidth : Math.Max(160, Width - 56);
-        var canvasHeight = NotesCanvas.ActualHeight > 0 ? NotesCanvas.ActualHeight : Math.Max(120, Height - 120);
+        var canvas = ActiveCanvas;
+        var canvasWidth = canvas.ActualWidth > 0 ? canvas.ActualWidth : Math.Max(160, Width - 56);
+        var canvasHeight = canvas.ActualHeight > 0 ? canvas.ActualHeight : Math.Max(120, Height - 120);
         var noteWidth = Math.Clamp(184, 140, Math.Max(140, canvasWidth - 8));
         var noteHeight = Math.Clamp(184, 110, Math.Max(110, canvasHeight - 8));
 
@@ -497,10 +543,11 @@ public partial class MainWindow : Window
         var note = CreateNote(model);
         Canvas.SetLeft(note, model.X);
         Canvas.SetTop(note, model.Y);
-        NotesCanvas.Children.Add(note);
+        canvas.Children.Add(note);
         _notes.Add(note);
-        _state.Notes.Add(model);
+        ActiveNoteModels.Add(model);
 
+        UpdateBoardHeader();
         UpdateEmptyHint();
         QueueSave();
         note.BeginEdit();
@@ -510,14 +557,15 @@ public partial class MainWindow : Window
     {
         if (!_notes.Remove(note)) return;
         if (note.IsEditing) note.EndEdit();
-        NotesCanvas.Children.Remove(note);
+        (note.Parent as Canvas)?.Children.Remove(note);
 
         var model = note.Model;
-        _state.Notes.Remove(model);
+        var ownerNotes = ActiveNoteModels;
+        ownerNotes.Remove(model);
 
         if (offerUndo)
         {
-            _undoAction = () => RestoreDeletedNote(model);
+            _undoAction = () => RestoreDeletedNote(model, ownerNotes);
             ShowToast("便签已删除 · 点击此处撤销", _undoAction);
         }
         else
@@ -529,22 +577,40 @@ public partial class MainWindow : Window
         QueueSave();
     }
 
-    private void RestoreDeletedNote(NoteModel model)
+    private void RestoreDeletedNote(NoteModel model, List<NoteModel>? ownerNotes = null)
     {
-        if (_state.Notes.Any(n => string.Equals(n.Id, model.Id, StringComparison.OrdinalIgnoreCase))) return;
+        ownerNotes ??= ActiveNoteModels;
+        if (ownerNotes.Any(n => string.Equals(n.Id, model.Id, StringComparison.OrdinalIgnoreCase))) return;
+
+        var targetBoard = _state.Boards.FirstOrDefault(b => ReferenceEquals(b.Notes, ownerNotes));
+        if (ownerNotes != _state.Notes && targetBoard == null) return;
+
         EnsureNoteInCanvas(model);
-        _state.Notes.Add(model);
+        ownerNotes.Add(model);
+
+        // If the owning board is no longer displayed (or we are on the multi-board
+        // home), only restore the model; the canvas is rebuilt when it opens.
+        if ((IsMultiBoard && !IsBoardOpen) || !ReferenceEquals(ownerNotes, ActiveNoteModels))
+        {
+            BuildBoardHome();
+            UpdateEmptyHint();
+            QueueSave();
+            return;
+        }
+
         var note = CreateNote(model);
-        NotesCanvas.Children.Add(note);
+        ActiveCanvas.Children.Add(note);
         _notes.Add(note);
+        UpdateBoardHeader();
         UpdateEmptyHint();
         QueueSave();
     }
 
     private void EnsureNoteInCanvas(NoteModel model)
     {
-        var width = NotesCanvas.ActualWidth > 0 ? NotesCanvas.ActualWidth : Math.Max(160, Width - 56);
-        var height = NotesCanvas.ActualHeight > 0 ? NotesCanvas.ActualHeight : Math.Max(120, Height - 120);
+        var canvas = ActiveCanvas;
+        var width = canvas.ActualWidth > 0 ? canvas.ActualWidth : Math.Max(160, Width - 56);
+        var height = canvas.ActualHeight > 0 ? canvas.ActualHeight : Math.Max(120, Height - 120);
         model.Width = Math.Clamp(model.Width, 140, Math.Max(140, width));
         model.Height = Math.Clamp(model.Height, 110, Math.Max(110, height));
         model.X = Math.Clamp(model.X, 0, Math.Max(0, width - model.Width));
@@ -553,7 +619,8 @@ public partial class MainWindow : Window
 
     private void ClampNotesToCanvas()
     {
-        if (NotesCanvas.ActualWidth <= 0 || NotesCanvas.ActualHeight <= 0) return;
+        var canvas = ActiveCanvas;
+        if (canvas.ActualWidth <= 0 || canvas.ActualHeight <= 0) return;
         foreach (var note in _notes)
         {
             EnsureNoteInCanvas(note.Model);
@@ -564,20 +631,370 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateEmptyHint()
+    private void ApplyMode(bool reloadNotes)
     {
-        EmptyHint.Visibility = _notes.Count == 0 && !_settingsOpen && !_isCollapsed
+        _activeBoard = null;
+        var multi = IsMultiBoard;
+        NotesCanvas.Visibility = multi ? Visibility.Collapsed : Visibility.Visible;
+        MultiBoardLayer.Visibility = multi ? Visibility.Visible : Visibility.Collapsed;
+        BoardHome.Visibility = multi ? Visibility.Visible : Visibility.Collapsed;
+        BoardView.Visibility = Visibility.Collapsed;
+
+        BuildBoardHome();
+        BuildBoardRail();
+        ApplyBoardSurfaceTheme();
+        RefreshModeChrome();
+        if (reloadNotes) ReloadNotes();
+        UpdateEmptyHint();
+    }
+
+    private void RefreshModeChrome()
+    {
+        BackButton.Visibility = IsBoardOpen ? Visibility.Visible : Visibility.Collapsed;
+        SidebarToggleButton.Visibility = IsBoardOpen ? Visibility.Visible : Visibility.Collapsed;
+        SidebarToggleButton.Opacity = _state.Settings.BoardRailVisible ? 1 : 0.5;
+        SidebarToggleButton.ToolTip = _state.Settings.BoardRailVisible ? "隐藏侧边栏" : "显示侧边栏";
+
+        if (IsBoardOpen)
+        {
+            AddNoteText.Text = "新增便签";
+            AddNoteButton.ToolTip = "新建便签（Ctrl+N）";
+        }
+        else if (IsMultiBoard)
+        {
+            AddNoteText.Text = "新增子板";
+            AddNoteButton.ToolTip = "新建子板（Ctrl+N）";
+        }
+        else
+        {
+            AddNoteText.Text = "新增便签";
+            AddNoteButton.ToolTip = "新建便签（Ctrl+N）";
+        }
+
+        ApplyTrashVisibility();
+        UpdateRailVisibility();
+    }
+
+    private void BuildBoardHome()
+    {
+        BoardsPanel.Children.Clear();
+        foreach (var board in _state.Boards)
+            BoardsPanel.Children.Add(CreateBoardCard(board, rail: false));
+
+        BoardHomeEmpty.Visibility = IsMultiBoard && !IsBoardOpen && _state.Boards.Count == 0 && !_settingsOpen
             ? Visibility.Visible
             : Visibility.Collapsed;
+    }
+
+    private void BuildBoardRail()
+    {
+        BoardsRailPanel.Children.Clear();
+        if (!IsBoardOpen) return;
+
+        foreach (var board in _state.Boards.Where(b => !ReferenceEquals(b, _activeBoard)))
+            BoardsRailPanel.Children.Add(CreateBoardCard(board, rail: true));
+
+        UpdateRailVisibility();
+    }
+
+    private void UpdateRailVisibility()
+    {
+        var otherCount = IsBoardOpen ? _state.Boards.Count(b => !ReferenceEquals(b, _activeBoard)) : 0;
+        var show = IsBoardOpen && _state.Settings.BoardRailVisible && otherCount > 0;
+        BoardsRailScroll.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        SidebarToggleButton.IsEnabled = otherCount > 0;
+    }
+
+    private Border CreateBoardCard(SubBoardModel board, bool rail)
+    {
+        var color = ColorUtil.Parse(board.Color, ColorUtil.Parse("#E9E3D5", Colors.White));
+        var ink = BoardInk(color);
+        var border = new Border
+        {
+            Width = rail ? 64 : 148,
+            Height = rail ? 50 : 92,
+            CornerRadius = new CornerRadius(rail ? 7 : 10),
+            Margin = rail ? new Thickness(0, 0, 0, 7) : new Thickness(4),
+            Padding = rail ? new Thickness(7, 5, 7, 5) : new Thickness(12, 9, 12, 9),
+            Background = new SolidColorBrush(ColorUtil.WithAlpha(color, rail ? 0.9 : 0.95)),
+            BorderBrush = new SolidColorBrush(ColorUtil.WithAlpha(ink, 0.16)),
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand,
+            ToolTip = board.Title
+        };
+
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        var title = new TextBlock
+        {
+            Text = string.IsNullOrWhiteSpace(board.Title) ? "未命名板块" : board.Title,
+            Foreground = new SolidColorBrush(ink),
+            FontWeight = FontWeights.SemiBold,
+            FontSize = rail ? 10.5 : 13,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        grid.Children.Add(title);
+
+        if (!rail)
+        {
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var count = new TextBlock
+            {
+                Text = board.Notes.Count == 0 ? "空板块" : $"{board.Notes.Count} 张便签",
+                Foreground = new SolidColorBrush(ColorUtil.WithAlpha(ink, 0.62)),
+                FontSize = 10.5,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            Grid.SetRow(count, 1);
+            grid.Children.Add(count);
+        }
+
+        border.Child = grid;
+        border.MouseLeftButtonUp += (_, e) =>
+        {
+            if (e.ChangedButton == MouseButton.Left) OpenBoard(board);
+        };
+        border.ContextMenu = CreateBoardMenu(board);
+        return border;
+    }
+
+    private ContextMenu CreateBoardMenu(SubBoardModel board)
+    {
+        var menu = new ContextMenu();
+        var rename = new MenuItem { Header = "重命名板块" };
+        rename.Click += (_, _) => RenameBoard(board);
+        var color = new MenuItem { Header = "板块颜色" };
+        color.Click += (_, _) => PickBoardColor(board);
+        var delete = new MenuItem { Header = "删除板块", Foreground = new SolidColorBrush(Color.FromRgb(200, 60, 52)) };
+        delete.Click += (_, _) => DeleteBoard(board);
+        menu.Items.Add(rename);
+        menu.Items.Add(color);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(delete);
+        return menu;
+    }
+
+    private void AddBoard()
+    {
+        if (_isCollapsed) ExpandPanel();
+        if (_settingsOpen) HideSettings();
+        if (!IsMultiBoard) return;
+
+        var board = new SubBoardModel
+        {
+            Title = $"板块 {_state.Boards.Count + 1}",
+            Color = ColorUtil.ToHex(DefaultBoardColor())
+        };
+        _state.Boards.Add(board);
+        BuildBoardHome();
+        UpdateEmptyHint();
+        QueueSave();
+        ShowToast("已新增子板");
+        Dispatcher.BeginInvoke(new Action(() => BoardsScroll.ScrollToEnd()), DispatcherPriority.Background);
+    }
+
+    private Color DefaultBoardColor()
+    {
+        var panel = ColorUtil.Parse(_state.Settings.PanelColor, Colors.White);
+        return ColorUtil.Blend(panel, Colors.Black, 0.14);
+    }
+
+    private void OpenBoard(SubBoardModel board)
+    {
+        if (!_state.Boards.Contains(board)) return;
+        if (_isCollapsed) ExpandPanel();
+        if (_settingsOpen) HideSettings();
+        _activeBoard = board;
+        BoardHome.Visibility = Visibility.Collapsed;
+        BoardView.Visibility = Visibility.Visible;
+        BuildBoardRail();
+        ApplyBoardSurfaceTheme();
+        RefreshModeChrome();
+        UpdateLayout();
+        ReloadNotes();
+        QueueSave();
+    }
+
+    private void GoHome()
+    {
+        if (!IsBoardOpen) return;
+        _activeBoard = null;
+        BoardView.Visibility = Visibility.Collapsed;
+        BoardHome.Visibility = Visibility.Visible;
+        BuildBoardHome();
+        BuildBoardRail();
+        RefreshModeChrome();
+        UpdateLayout();
+        ReloadNotes();
+        QueueSave();
+    }
+
+    private void DeleteBoard(SubBoardModel board)
+    {
+        var index = _state.Boards.IndexOf(board);
+        if (index < 0) return;
+        var wasActive = ReferenceEquals(board, _activeBoard);
+        _state.Boards.RemoveAt(index);
+        if (wasActive) _activeBoard = null;
+        BuildBoardHome();
+        BuildBoardRail();
+        if (wasActive)
+        {
+            BoardView.Visibility = Visibility.Collapsed;
+            BoardHome.Visibility = Visibility.Visible;
+            ReloadNotes();
+        }
+        RefreshModeChrome();
+        UpdateEmptyHint();
+        QueueSave();
+        ShowToast("板块已删除 · 点击此处撤销", () =>
+        {
+            if (_state.Boards.Contains(board)) return;
+            _state.Boards.Insert(Math.Min(index, _state.Boards.Count), board);
+            BuildBoardHome();
+            BuildBoardRail();
+            RefreshModeChrome();
+            UpdateEmptyHint();
+            QueueSave();
+        });
+    }
+
+    private void RenameBoard(SubBoardModel board)
+    {
+        var name = TextPromptWindow.Show(this, "重命名板块", "输入板块名称", board.Title);
+        if (string.IsNullOrWhiteSpace(name)) return;
+        board.Title = name.Trim();
+        BuildBoardHome();
+        BuildBoardRail();
+        UpdateBoardHeader();
+        QueueSave();
+    }
+
+    private void PickBoardColor(SubBoardModel board)
+    {
+        var picker = new ColorPickerWindow(ColorUtil.Parse(board.Color, ColorUtil.Parse("#E9E3D5", Colors.White)))
+        {
+            Owner = this
+        };
+        if (picker.ShowDialog() != true) return;
+        board.Color = ColorUtil.ToHex(picker.SelectedColor);
+        BuildBoardHome();
+        BuildBoardRail();
+        ApplyBoardSurfaceTheme();
+        QueueSave();
+    }
+
+    private void ApplyBoardSurfaceTheme()
+    {
+        if (_activeBoard == null)
+        {
+            BoardTitleText.Foreground = new SolidColorBrush(ColorUtil.Parse(_state.Settings.SettingsColor, Colors.Black));
+            BoardNoteCountText.Foreground = new SolidColorBrush(ColorUtil.Parse(_state.Settings.SettingsColor, Colors.Black));
+            return;
+        }
+
+        var color = ColorUtil.Parse(_activeBoard.Color, ColorUtil.Parse("#E9E3D5", Colors.White));
+        var ink = BoardInk(color);
+        var alpha = Math.Clamp(_state.Settings.PanelOpacity * 0.96, 0.55, 0.94);
+        BoardSurface.Background = new SolidColorBrush(ColorUtil.WithAlpha(color, alpha));
+        BoardSurface.BorderBrush = new SolidColorBrush(ColorUtil.WithAlpha(ink, 0.18));
+        BoardTitleText.Foreground = new SolidColorBrush(ink);
+        BoardNoteCountText.Foreground = new SolidColorBrush(ColorUtil.WithAlpha(ink, 0.6));
+        BoardEmptyTitle.Foreground = new SolidColorBrush(ink);
+        BoardEmptySub.Foreground = new SolidColorBrush(ColorUtil.WithAlpha(ink, 0.58));
+        BoardTitleText.Text = string.IsNullOrWhiteSpace(_activeBoard.Title) ? "未命名板块" : _activeBoard.Title;
+    }
+
+    private Color BoardInk(Color background)
+    {
+        var baseInk = ColorUtil.Parse(_state.Settings.SettingsColor, Colors.Black);
+        if (ColorUtil.ContrastRatio(baseInk, background) >= 4.5) return baseInk;
+        return ColorUtil.EnsureContrast(baseInk, background, 4.5);
+    }
+
+    private void AppMode_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_uiUpdating || sender is not RadioButton radio || radio.Tag is not string tag) return;
+        if (!Enum.TryParse<AppMode>(tag, true, out var mode)) return;
+        if (_state.Settings.Mode == mode) return;
+        _state.Settings.Mode = mode;
+        ApplyMode(reloadNotes: true);
+        ApplyTheme();
+        ApplyBackground();
+        RefreshSettingsUi();
+        QueueSave();
+        ShowToast(mode == AppMode.MultiBoard ? "已切换到多板模式" : "已切换到极简模式");
+    }
+
+    private void BackButton_Click(object sender, RoutedEventArgs e) => GoHome();
+
+    private void SidebarToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsBoardOpen) return;
+        _state.Settings.BoardRailVisible = !_state.Settings.BoardRailVisible;
+        BuildBoardRail();
+        RefreshModeChrome();
+        QueueSave();
+        Dispatcher.BeginInvoke(new Action(ClampNotesToCanvas), DispatcherPriority.Background);
+    }
+
+    private void BoardTitleText_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (_activeBoard != null && e.ClickCount >= 2)
+        {
+            RenameBoard(_activeBoard);
+            e.Handled = true;
+        }
+    }
+
+    private void UpdateEmptyHint()
+    {
+        var home = IsMultiBoard && !IsBoardOpen;
+        var board = IsBoardOpen;
+        var showEmpty = !_settingsOpen && !_isCollapsed;
+
+        EmptyHint.Visibility = !home && !board && _notes.Count == 0 && showEmpty
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        BoardHomeEmpty.Visibility = home && _state.Boards.Count == 0 && showEmpty
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        BoardEmptyHint.Visibility = board && _notes.Count == 0 && showEmpty
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        if (!home && !board)
+        {
+            EmptyHintTitle.Text = "便签板是空的";
+            EmptyHintSub.Text = "点击右下角 ＋ 写点什么";
+        }
+
+        ApplyTrashVisibility();
+        UpdateBoardHeader();
+    }
+
+    private void UpdateBoardHeader()
+    {
+        if (_activeBoard == null)
+        {
+            BoardTitleText.Text = "板块";
+            BoardNoteCountText.Text = string.Empty;
+            return;
+        }
+
+        BoardTitleText.Text = string.IsNullOrWhiteSpace(_activeBoard.Title) ? "未命名板块" : _activeBoard.Title;
+        BoardNoteCountText.Text = _activeBoard.Notes.Count == 0 ? "空" : $"{_activeBoard.Notes.Count} 张";
     }
 
     // ---------------------------------------------------------------- trash
 
     private void ApplyTrashVisibility()
     {
-        TrashZone.Visibility = _state.Settings.TrashEnabled ? Visibility.Visible : Visibility.Collapsed;
+        var allowed = _state.Settings.TrashEnabled && (!IsMultiBoard || IsBoardOpen);
+        TrashZone.Visibility = allowed ? Visibility.Visible : Visibility.Collapsed;
         ConfirmDeleteSwitch.IsEnabled = _state.Settings.TrashEnabled;
-        if (!_state.Settings.TrashEnabled) ResetTrashVisual();
+        if (!allowed) ResetTrashVisual();
     }
 
     private bool IsOverTrash(NoteControl note)
@@ -641,6 +1058,8 @@ public partial class MainWindow : Window
         if (pill != null)
         {
             SettingsButton.Background = pill;
+            BackButton.Background = pill;
+            SidebarToggleButton.Background = pill;
             CloseButton.Background = pill;
             AddNoteButton.Background = pill;
             TrashZone.Background = pill;
@@ -648,6 +1067,8 @@ public partial class MainWindow : Window
         }
 
         SettingsButton.ClearValue(Control.BackgroundProperty);
+        BackButton.ClearValue(Control.BackgroundProperty);
+        SidebarToggleButton.ClearValue(Control.BackgroundProperty);
         CloseButton.ClearValue(Control.BackgroundProperty);
         AddNoteButton.ClearValue(Control.BackgroundProperty);
         PinButton.ClearValue(Control.BackgroundProperty);
@@ -892,6 +1313,8 @@ public partial class MainWindow : Window
         {
             var settings = _state.Settings;
 
+            ModeMinimalRadio.IsChecked = settings.Mode == AppMode.Minimal;
+            ModeMultiRadio.IsChecked = settings.Mode == AppMode.MultiBoard;
             PanelOpacitySlider.Value = Math.Clamp(settings.PanelOpacity * 100, PanelOpacitySlider.Minimum, PanelOpacitySlider.Maximum);
             PanelOpacityValue.Text = $"{PanelOpacitySlider.Value:0}%";
             ImageOpacitySlider.Value = Math.Clamp(settings.BackgroundImageOpacity * 100, ImageOpacitySlider.Minimum, ImageOpacitySlider.Maximum);
@@ -1840,6 +2263,11 @@ public partial class MainWindow : Window
                 ExpandPanel();
                 e.Handled = true;
             }
+            else if (IsBoardOpen)
+            {
+                GoHome();
+                e.Handled = true;
+            }
             return;
         }
 
@@ -1897,6 +2325,8 @@ public partial class MainWindow : Window
 
     public FrameworkElement PreviewRoot => WindowRoot;
 
+    public void PreviewLayoutComplete() => ClampNotesToCanvas();
+
     public void ApplyPreviewScene(string scene)
     {
         switch ((scene ?? string.Empty).ToLowerInvariant())
@@ -1909,6 +2339,7 @@ public partial class MainWindow : Window
                 _notes.Clear();
                 break;
             case "settings":
+            case "multi-settings":
                 ShowSettingsPreview();
                 break;
             case "confirm":
@@ -1916,6 +2347,20 @@ public partial class MainWindow : Window
                 break;
             case "editing":
                 if (_notes.Count > 0) _notes[0].BeginEdit();
+                break;
+            case "multi-home":
+                break;
+            case "multi-board":
+                if (_state.Boards.Count > 0) OpenBoard(_state.Boards[^1]);
+                break;
+            case "multi-rail-hidden":
+                if (_state.Boards.Count > 0)
+                {
+                    OpenBoard(_state.Boards[^1]);
+                    _state.Settings.BoardRailVisible = false;
+                    BuildBoardRail();
+                    RefreshModeChrome();
+                }
                 break;
             case "collapsed":
                 PanelContainer.Visibility = Visibility.Collapsed;

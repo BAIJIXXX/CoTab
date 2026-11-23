@@ -45,6 +45,69 @@
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Padding" Value="8,0" />
         </Style>
+        <Style x:Key="ModeCardStyle" TargetType="{x:Type RadioButton}">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Foreground" Value="#E8E8EC" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RadioButton}">
+                        <Border x:Name="Card" CornerRadius="8" Background="#10FFFFFF" BorderBrush="#20FFFFFF"
+                                BorderThickness="1" Padding="8">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Card" Property="Background" Value="#18FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Card" Property="Background" Value="#14FFD66B" />
+                                <Setter TargetName="Card" Property="BorderBrush" Value="#FFD66B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PanelScrollThumbStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="ThumbBg" Background="#33000000" CornerRadius="3" Margin="1" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ThumbBg" Property="Background" Value="#55000000" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PanelScrollBarStyle" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Width" Value="6" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid Background="Transparent">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" Opacity="0" Focusable="False" />
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource PanelScrollThumbStyle}" />
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" Opacity="0" Focusable="False" />
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="AccentButtonStyle" TargetType="{x:Type Button}">
             <Setter Property="Height" Value="27" />
             <Setter Property="Padding" Value="14,0" />
@@ -133,6 +196,73 @@
             <Grid x:Name="ContentRoot" Margin="12">
                 <Canvas x:Name="NotesCanvas" Background="Transparent" ClipToBounds="True" />
 
+                <Grid x:Name="MultiBoardLayer" Visibility="Collapsed">
+                    <Grid x:Name="BoardHome" Margin="0,44,0,44">
+                        <ScrollViewer x:Name="BoardsScroll" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled" Padding="0,0,2,0">
+                            <ScrollViewer.Resources>
+                                <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource PanelScrollBarStyle}" />
+                            </ScrollViewer.Resources>
+                            <WrapPanel x:Name="BoardsPanel" />
+                        </ScrollViewer>
+                        <StackPanel x:Name="BoardHomeEmpty" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    IsHitTestVisible="False" Opacity="0.66">
+                            <Border x:Name="BoardHomeEmptyGlyph" Width="54" Height="44" CornerRadius="7" BorderThickness="1.2"
+                                    BorderBrush="#66000000" HorizontalAlignment="Center">
+                                <UniformGrid Columns="2" Rows="2" Margin="7">
+                                    <Border CornerRadius="1.5" Background="#55FFF1B8" Margin="1" />
+                                    <Border CornerRadius="1.5" Background="#55FFD66B" Margin="1" />
+                                    <Border CornerRadius="1.5" Background="#55FFD66B" Margin="1" />
+                                    <Border CornerRadius="1.5" Background="#55FFF1B8" Margin="1" />
+                                </UniformGrid>
+                            </Border>
+                            <TextBlock x:Name="BoardHomeEmptyTitle" Text="还没有子板" HorizontalAlignment="Center" FontSize="12.5"
+                                       FontWeight="SemiBold" Margin="0,11,0,0" Foreground="#3B3C42" />
+                            <TextBlock x:Name="BoardHomeEmptySub" Text="点击右下角 ＋ 新建一个分类板块" HorizontalAlignment="Center"
+                                       FontSize="11" Margin="0,5,0,0" Foreground="#8A8C94" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid x:Name="BoardView" Visibility="Collapsed" Margin="2,44,2,44">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ScrollViewer x:Name="BoardsRailScroll" Width="76" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled" Margin="0,0,8,0">
+                            <ScrollViewer.Resources>
+                                <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource PanelScrollBarStyle}" />
+                            </ScrollViewer.Resources>
+                            <StackPanel x:Name="BoardsRailPanel" />
+                        </ScrollViewer>
+                        <Border x:Name="BoardSurface" Grid.Column="1" CornerRadius="10" BorderThickness="1"
+                                Background="#E6E9E3" ClipToBounds="True">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="34" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid x:Name="BoardSurfaceHeader" Margin="12,0,10,0">
+                                    <TextBlock x:Name="BoardTitleText" Text="板块" FontSize="12.5" FontWeight="SemiBold"
+                                               VerticalAlignment="Center" Cursor="Hand" ToolTip="双击重命名"
+                                               MouseLeftButtonDown="BoardTitleText_MouseLeftButtonDown" />
+                                    <TextBlock x:Name="BoardNoteCountText" Text="" FontSize="10" VerticalAlignment="Center"
+                                               HorizontalAlignment="Right" Opacity="0.66" />
+                                </Grid>
+                                <Canvas x:Name="BoardNotesCanvas" Grid.Row="1" Margin="10,0,10,10"
+                                        Background="Transparent" ClipToBounds="True" />
+                                <StackPanel x:Name="BoardEmptyHint" Grid.Row="1" HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" IsHitTestVisible="False" Opacity="0.62">
+                                    <TextBlock x:Name="BoardEmptyTitle" Text="这个板块还没有便签" HorizontalAlignment="Center"
+                                               FontSize="12.5" FontWeight="SemiBold" Foreground="#3B3C42" />
+                                    <TextBlock x:Name="BoardEmptySub" Text="点击右下角 ＋ 新增便签" HorizontalAlignment="Center"
+                                               FontSize="11" Margin="0,5,0,0" Foreground="#8A8C94" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+
                 <StackPanel x:Name="EmptyHint" HorizontalAlignment="Center" VerticalAlignment="Center"
                             IsHitTestVisible="False" Opacity="0.62">
                     <Path x:Name="EmptyHintGlyph" Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center"
@@ -147,14 +277,29 @@
                 <Grid x:Name="TopBar" Height="44" VerticalAlignment="Top">
                     <Border x:Name="TitleDragSurface" Background="Transparent"
                             MouseLeftButtonDown="TitleDragSurface_MouseLeftButtonDown" />
-                    <Button x:Name="SettingsButton" Style="{StaticResource IconButtonStyle}"
-                            HorizontalAlignment="Left" VerticalAlignment="Center" ToolTip="设置"
-                            Click="SettingsButton_Click">
-                        <Path x:Name="SettingsGlyph" Width="16" Height="16" Stretch="Uniform" Fill="#3B3C42"
-                              Data="M12,1.8 L14.1,4.1 L17.2,3.5 L18.3,6.4 L21.2,7.6 L20.7,10.7 L23,12.8 L20.7,14.9 L21.2,18 L18.3,19.2 L17.2,22.1 L14.1,21.5 L12,23.8 L9.9,21.5 L6.8,22.1 L5.7,19.2 L2.8,18 L3.3,14.9 L1,12.8 L3.3,10.7 L2.8,7.6 L5.7,6.4 L6.8,3.5 L9.9,4.1 Z M12,7.6 A5.2,5.2 0 1 0 12,18 A5.2,5.2 0 1 0 12,7.6 Z" />
-                    </Button>
+                    <StackPanel x:Name="TopLeftControls" Orientation="Horizontal"
+                                HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Button x:Name="BackButton" Style="{StaticResource IconButtonStyle}" Visibility="Collapsed"
+                                Margin="0,0,2,0" ToolTip="返回主页" Click="BackButton_Click">
+                            <Path x:Name="BackGlyph" Width="14" Height="14" Stretch="Uniform" Stroke="#3B3C42"
+                                  StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M11,2 L4,8 L11,14 M4,8 H15" />
+                        </Button>
+                        <Button x:Name="SettingsButton" Style="{StaticResource IconButtonStyle}"
+                                VerticalAlignment="Center" ToolTip="设置" Click="SettingsButton_Click">
+                            <Path x:Name="SettingsGlyph" Width="16" Height="16" Stretch="Uniform" Fill="#3B3C42"
+                                  Data="M12,1.8 L14.1,4.1 L17.2,3.5 L18.3,6.4 L21.2,7.6 L20.7,10.7 L23,12.8 L20.7,14.9 L21.2,18 L18.3,19.2 L17.2,22.1 L14.1,21.5 L12,23.8 L9.9,21.5 L6.8,22.1 L5.7,19.2 L2.8,18 L3.3,14.9 L1,12.8 L3.3,10.7 L2.8,7.6 L5.7,6.4 L6.8,3.5 L9.9,4.1 Z M12,7.6 A5.2,5.2 0 1 0 12,18 A5.2,5.2 0 1 0 12,7.6 Z" />
+                        </Button>
+                    </StackPanel>
                     <StackPanel x:Name="TopRightControls" Orientation="Horizontal"
                                 HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button x:Name="SidebarToggleButton" Style="{StaticResource IconButtonStyle}"
+                                Visibility="Collapsed" Margin="0,0,2,0" ToolTip="显示/隐藏其他板块"
+                                Click="SidebarToggleButton_Click">
+                            <Path x:Name="SidebarGlyph" Width="14" Height="14" Stretch="Uniform" Fill="Transparent"
+                                  Stroke="#3B3C42" StrokeThickness="1.3"
+                                  Data="M1.5,3 H14.5 V15 H1.5 Z M5.5,3 V15" />
+                        </Button>
                         <Button x:Name="AutoHideButton" Style="{StaticResource IconButtonStyle}"
                                 Margin="0,0,2,0" ToolTip="自动收起" Click="AutoHideButton_Click">
                             <Path x:Name="AutoHideGlyph" Width="12" Height="10.4" Stretch="Fill"
@@ -225,6 +370,43 @@
                         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                       Padding="0,0,4,0">
                             <StackPanel Margin="18,0,14,18">
+                                <TextBlock Text="模式" Style="{StaticResource SettingsSectionTitle}" />
+                                <UniformGrid Columns="2" Margin="0,0,0,16">
+                                    <RadioButton x:Name="ModeMinimalRadio" Tag="Minimal" GroupName="AppMode"
+                                                 Style="{StaticResource ModeCardStyle}" Margin="0,0,4,0"
+                                                 Checked="AppMode_Checked">
+                                        <StackPanel>
+                                            <Border Height="48" CornerRadius="5" Background="#18FFFFFF">
+                                                <Grid Margin="6">
+                                                    <Border Width="38" Height="27" CornerRadius="2" Background="#FFF1B8"
+                                                            HorizontalAlignment="Left" VerticalAlignment="Top" />
+                                                    <Border Width="20" Height="9" CornerRadius="2" Background="#33FFFFFF"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                                                    <Ellipse Width="8" Height="8" Fill="#FFD66B"
+                                                             HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                                                </Grid>
+                                            </Border>
+                                            <TextBlock Text="极简模式" FontSize="11.5" Foreground="#F0F0F3" Margin="1,7,0,0" />
+                                            <TextBlock Text="单面板便签" FontSize="10" Foreground="#92939B" Margin="1,2,0,0" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton x:Name="ModeMultiRadio" Tag="MultiBoard" GroupName="AppMode"
+                                                 Style="{StaticResource ModeCardStyle}" Margin="4,0,0,0"
+                                                 Checked="AppMode_Checked">
+                                        <StackPanel>
+                                            <Border Height="48" CornerRadius="5" Background="#18FFFFFF">
+                                                <UniformGrid Columns="2" Rows="2" Margin="5">
+                                                    <Border CornerRadius="2" Background="#E9E3D5" Margin="1.5" />
+                                                    <Border CornerRadius="2" Background="#CFE3EE" Margin="1.5" />
+                                                    <Border CornerRadius="2" Background="#EFD2C4" Margin="1.5" />
+                                                    <Border CornerRadius="2" Background="#FFD66B" Margin="1.5" />
+                                                </UniformGrid>
+                                            </Border>
+                                            <TextBlock Text="多板模式" FontSize="11.5" Foreground="#F0F0F3" Margin="1,7,0,0" />
+                                            <TextBlock Text="子板分类" FontSize="10" Foreground="#92939B" Margin="1,2,0,0" />
+                                        </StackPanel>
+                                    </RadioButton>
+                                </UniformGrid>
                                 <TextBlock Text="外观" Style="{StaticResource SettingsSectionTitle}" />
                                 <StackPanel x:Name="PanelColorRowHost" />
                                 <Grid Margin="0,10,0,0">

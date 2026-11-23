@@ -29,6 +29,8 @@ public static class PreviewRenderer
         root.Measure(new Size(boardWidth, boardHeight));
         root.Arrange(new Rect(0, 0, boardWidth, boardHeight));
         root.UpdateLayout();
+        window.PreviewLayoutComplete();
+        root.UpdateLayout();
 
         var board = new RenderTargetBitmap(
             (int)Math.Ceiling(boardWidth), (int)Math.Ceiling(boardHeight),
@@ -73,6 +75,13 @@ public static class PreviewRenderer
         encoder.Save(stream);
     }
 
+    private static SubBoardModel AddBoard(AppState state, string title, string color)
+    {
+        var board = new SubBoardModel { Title = title, Color = color };
+        state.Boards.Add(board);
+        return board;
+    }
+
     private static AppState BuildPreviewState(string scene)
     {
         var state = new AppState();
@@ -115,6 +124,34 @@ public static class PreviewRenderer
             state.Settings.NoteFillColor = "#F5DFA2";
             state.Settings.NoteFontColor = "#332E25";
             state.Settings.BackgroundStyle = PanelBackgroundStyle.Dots;
+        }
+
+        if (scene.StartsWith("multi", StringComparison.OrdinalIgnoreCase))
+        {
+            state.Settings.Mode = AppMode.MultiBoard;
+            AddBoard(state, "工作", "#CFE3EE");
+            AddBoard(state, "生活", "#F2DCC8");
+            AddBoard(state, "灵感", "#DCE6D2");
+            var study = AddBoard(state, "学习", "#E6D9EC");
+            study.Notes.Add(new NoteModel
+            {
+                X = 12, Y = 16, Width = 176, Height = 140,
+                Text = "### 本周阅读\n\n- 《设计中的设计》\n- 整理读书笔记",
+                Markdown = true
+            });
+            study.Notes.Add(new NoteModel
+            {
+                X = 128, Y = 116, Width = 172, Height = 150,
+                Text = "**复习计划**\n\n- [x] 第一章\n- [ ] 第二章\n- [ ] 习题",
+                Markdown = true
+            });
+            study.Notes.Add(new NoteModel
+            {
+                X = 18, Y = 258, Width = 178, Height = 132,
+                Text = "周五前把 Markdown 语法整理成便签。",
+                Markdown = true
+            });
+            return state;
         }
 
         if (scene.Equals("single", StringComparison.OrdinalIgnoreCase))

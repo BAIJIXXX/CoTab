@@ -131,9 +131,12 @@ public static class StateStore
     {
         state.Settings ??= new SettingsModel();
         state.Notes ??= new List<NoteModel>();
+        state.Boards ??= new List<SubBoardModel>();
         state.Window ??= new WindowModel();
+        state.Version = 2;
 
         var s = state.Settings;
+        if (!Enum.IsDefined(s.Mode)) s.Mode = AppMode.Minimal;
         s.PanelOpacity = Math.Clamp(s.PanelOpacity, 0.18, 1.0);
         s.BackgroundImageOpacity = Math.Clamp(s.BackgroundImageOpacity, 0.15, 1.0);
         s.PanelColor = NormalizeColor(s.PanelColor, "#FFFFFF");
@@ -153,23 +156,28 @@ public static class StateStore
         foreach (var note in state.Notes)
         {
             if (note is null) continue;
-            if (string.IsNullOrWhiteSpace(note.Id) || !ids.Add(note.Id))
-            {
-                note.Id = Guid.NewGuid().ToString("N");
-                ids.Add(note.Id);
-            }
-            note.FillColor = NormalizeColor(note.FillColor, s.NoteFillColor);
-            note.FontColor = NormalizeColor(note.FontColor, s.NoteFontColor);
-            note.Text ??= string.Empty;
-            if (note.Text.Length > 100_000) note.Text = note.Text[..100_000];
-            if (double.IsNaN(note.X) || double.IsInfinity(note.X)) note.X = 0;
-            if (double.IsNaN(note.Y) || double.IsInfinity(note.Y)) note.Y = 0;
-            if (double.IsNaN(note.Width) || note.Width < 140) note.Width = 184;
-            if (double.IsNaN(note.Height) || note.Height < 110) note.Height = 184;
-            note.Width = Math.Clamp(note.Width, 140, 900);
-            note.Height = Math.Clamp(note.Height, 110, 1000);
+            NormalizeNote(note, s, ids);
         }
         state.Notes.RemoveAll(n => n is null);
+
+        var boardIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var board in state.Boards)
+        {
+            if (board is null) continue;
+            if (string.IsNullOrWhiteSpace(board.Id) || !boardIds.Add(board.Id))
+            {
+                board.Id = Guid.NewGuid().ToString("N");
+                boardIds.Add(board.Id);
+            }
+            board.Title = string.IsNullOrWhiteSpace(board.Title) ? "新板块" : board.Title.Trim();
+            if (board.Title.Length > 30) board.Title = board.Title[..30];
+            board.Color = NormalizeColor(board.Color, "#E9E3D5");
+            board.Notes ??= new List<NoteModel>();
+            board.Notes.RemoveAll(n => n is null);
+            foreach (var note in board.Notes)
+                NormalizeNote(note, s, ids);
+        }
+        state.Boards.RemoveAll(b => b is null);
 
         var w = state.Window;
         if (double.IsNaN(w.Width) || w.Width < 320) w.Width = 400;
@@ -178,6 +186,25 @@ public static class StateStore
         w.Height = Math.Clamp(w.Height, 380, 1400);
         if (double.IsNaN(w.Left) || double.IsInfinity(w.Left) || double.IsNaN(w.Top) || double.IsInfinity(w.Top))
             w.HasPosition = false;
+    }
+
+    private static void NormalizeNote(NoteModel note, SettingsModel s, HashSet<string> ids)
+    {
+        if (string.IsNullOrWhiteSpace(note.Id) || !ids.Add(note.Id))
+        {
+            note.Id = Guid.NewGuid().ToString("N");
+            ids.Add(note.Id);
+        }
+        note.FillColor = NormalizeColor(note.FillColor, s.NoteFillColor);
+        note.FontColor = NormalizeColor(note.FontColor, s.NoteFontColor);
+        note.Text ??= string.Empty;
+        if (note.Text.Length > 100_000) note.Text = note.Text[..100_000];
+        if (double.IsNaN(note.X) || double.IsInfinity(note.X)) note.X = 0;
+        if (double.IsNaN(note.Y) || double.IsInfinity(note.Y)) note.Y = 0;
+        if (double.IsNaN(note.Width) || note.Width < 140) note.Width = 184;
+        if (double.IsNaN(note.Height) || note.Height < 110) note.Height = 184;
+        note.Width = Math.Clamp(note.Width, 140, 900);
+        note.Height = Math.Clamp(note.Height, 110, 1000);
     }
 
     public static string NormalizeColor(string? value, string fallback)
