@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -20,8 +21,16 @@ public partial class MainWindow : Window
 {
     private const double CollapsedTabThicknessDip = 14;
     private const double CollapsedTabLengthDip = 88;
+    private const double CollapsedEdgeMarginDip = 24;
+    private const int CollapseSlideMilliseconds = 240;
+    private const int CollapseTabMilliseconds = 170;
+    private const int ExpandSlideMilliseconds = 280;
     private const double MinimumWindowWidth = 360;
     private const double MinimumWindowHeight = 420;
+
+    private readonly bool _animationsEnabled = !string.Equals(
+        Environment.GetEnvironmentVariable("COTAB_DISABLE_ANIMATIONS"), "1", StringComparison.OrdinalIgnoreCase);
+    private bool _animating;
 
     private readonly AppState _state;
     private readonly bool _previewMode;
@@ -50,6 +59,7 @@ public partial class MainWindow : Window
     private double _expandedTop;
     private double _expandedWidth;
     private double _expandedHeight;
+    private Rect _expandedScreenPixels;
     private DockEdge _dockEdge;
     private NoteControl? _pendingDelete;
     private Action? _undoAction;
@@ -164,6 +174,7 @@ public partial class MainWindow : Window
         _saveTimer.Stop();
         _autoHideTimer.Stop();
         _toastTimer.Stop();
+        StopAnimations();
         foreach (var note in _notes.Where(n => n.IsEditing).ToList())
             note.EndEdit();
         SaveNow();
@@ -172,7 +183,7 @@ public partial class MainWindow : Window
 
     private void Window_DpiChanged(object sender, DpiChangedEventArgs e)
     {
-        if (_previewMode) return;
+        if (_previewMode || _animating) return;
         if (_isCollapsed)
         {
             SizeAndPositionCollapsedTab(_dockEdge);
@@ -1095,6 +1106,12 @@ public partial class MainWindow : Window
 
     private void WindowRoot_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        if (_animating)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_isCollapsed)
         {
             e.Handled = true;
@@ -1251,8 +1268,8 @@ public partial class MainWindow : Window
 
     private void ScheduleAutoHide(double seconds)
     {
-        if (_previewMode || _closing || !_state.Settings.AutoHide || _isCollapsed || _suppressAutoHide ||
-            _settingsOpen || _noteMenuOpen || _resizingWindow)
+        if (_previewMode || _closing || _animating || !_state.Settings.AutoHide || _isCollapsed ||
+            _suppressAutoHide || _settingsOpen || _noteMenuOpen || _resizingWindow)
             return;
 
         if (ScreenUtil.DetectDock(this) == DockEdge.None)
@@ -1268,7 +1285,7 @@ public partial class MainWindow : Window
     private void AutoHideTimer_Tick(object? sender, EventArgs e)
     {
         _autoHideTimer.Stop();
-        if (_previewMode || _closing || !_state.Settings.AutoHide || _isCollapsed) return;
+        if (_previewMode || _closing || _animating || !_state.Settings.AutoHide || _isCollapsed) return;
         if (IsMouseOver || _settingsOpen || _noteMenuOpen || _resizingWindow ||
             _pendingDelete != null || _notes.Any(n => n.IsEditing) ||
             Application.Current?.Windows.OfType<Window>().Any(w => !ReferenceEquals(w, this) && w.IsVisible) == true)
@@ -1282,7 +1299,7 @@ public partial class MainWindow : Window
 
     private void CollapsePanel()
     {
-        if (_isCollapsed || _previewMode || _closing) return;
+        if (_isCollapsed || _previewMode || _closing || _animating) return;
         _dockEdge = ScreenUtil.DetectDock(this);
         if (_dockEdge == DockEdge.None) return;
 
@@ -1290,6 +1307,7 @@ public partial class MainWindow : Window
         _expandedTop = Top;
         _expandedWidth = Width;
         _expandedHeight = Height;
+        _expandedScreenPixels = ScreenUtil.GetWindowPixels(this);
 
         _isCollapsed = true;
         _autoHideTimer.Stop();
@@ -1297,14 +1315,117 @@ public partial class MainWindow : Window
         // normal minimums must not clamp it back to a full-size rectangle.
         MinWidth = 0;
         MinHeight = 0;
+        ResizeLayer.Visibility = Visibility.Collapsed;
+        CollapsedTab.Visibility = Visibility.Collapsed;
+
+        if (!_animationsEnabled)
+        {
+            ApplyCollapsedVisuals(animate: false);
+            return;
+        }
+
+        _animating = true;
+        WindowRoot.IsHitTestVisible = false;
+
+        // Slide the whole window — panel, shadow and all — completely past the
+        // docked screen edge. Only after it is fully gone does the small tab
+        // grow back out of that edge.
+        var (targetLeft, targetTop) = CollapseOffscreenTarget();
+        AnimateWindowTo(targetLeft, targetTop, CollapseSlideMilliseconds, EasingMode.EaseIn, () =>
+        {
+            if (_closing) return;
+            ApplyCollapsedVisuals(animate: true);
+        });
+    }
+
+    private (double Left, double Top) CollapseOffscreenTarget()
+    {
+        var win = ScreenUtil.GetWindowPixels(this);
+        var work = ScreenUtil.GetWorkAreaPixels(this);
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var left = Left;
+        var top = Top;
+
+        switch (_dockEdge)
+        {
+            case DockEdge.Left:
+                left -= Math.Max(0, win.Right - work.Left) / dpi.DpiScaleX;
+                break;
+            case DockEdge.Right:
+                left += Math.Max(0, work.Right - win.Left) / dpi.DpiScaleX;
+                break;
+            case DockEdge.Top:
+                top -= Math.Max(0, win.Bottom - work.Top) / dpi.DpiScaleY;
+                break;
+            case DockEdge.Bottom:
+                top += Math.Max(0, work.Bottom - win.Top) / dpi.DpiScaleY;
+                break;
+        }
+
+        return (left, top);
+    }
+
+    private void ApplyCollapsedVisuals(bool animate)
+    {
         PanelContainer.Visibility = Visibility.Collapsed;
         ResizeLayer.Visibility = Visibility.Collapsed;
-        CollapsedTab.Visibility = Visibility.Visible;
         ConfigureCollapsedTab(_dockEdge);
+        CollapsedTab.Visibility = Visibility.Visible;
+        CollapsedTab.Opacity = animate ? 0 : 1;
+        CollapsedTab.RenderTransform = null;
         SizeAndPositionCollapsedTab(_dockEdge);
-        UpdateEmptyHint();
-        ShowTrayIcon();
-        UpdateEdgeIndicator();
+        UpdateLayout();
+
+        if (!animate)
+        {
+            _animating = false;
+            WindowRoot.IsHitTestVisible = true;
+            UpdateEmptyHint();
+            ShowTrayIcon();
+            UpdateEdgeIndicator();
+            return;
+        }
+
+        AnimateCollapsedTabIn();
+    }
+
+    private void AnimateCollapsedTabIn()
+    {
+        var horizontal = _dockEdge is DockEdge.Left or DockEdge.Right;
+        var scale = new ScaleTransform(horizontal ? 0.02 : 1, horizontal ? 1 : 0.02);
+        CollapsedTab.RenderTransformOrigin = _dockEdge switch
+        {
+            DockEdge.Left => new Point(0, 0.5),
+            DockEdge.Right => new Point(1, 0.5),
+            DockEdge.Top => new Point(0.5, 0),
+            _ => new Point(0.5, 1)
+        };
+        CollapsedTab.RenderTransform = scale;
+
+        var duration = TimeSpan.FromMilliseconds(CollapseTabMilliseconds);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var anim = new DoubleAnimation(0.02, 1, duration) { EasingFunction = ease };
+        anim.Completed += (_, _) =>
+        {
+            if (_closing) return;
+            CollapsedTab.BeginAnimation(OpacityProperty, null);
+            CollapsedTab.RenderTransform = null;
+            CollapsedTab.Opacity = 1;
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            _animating = false;
+            WindowRoot.IsHitTestVisible = true;
+            UpdateEmptyHint();
+            ShowTrayIcon();
+            UpdateEdgeIndicator();
+        };
+
+        if (horizontal)
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, anim);
+        else
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, anim);
+
+        CollapsedTab.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(120)));
     }
 
     /// <summary>
@@ -1356,20 +1477,32 @@ public partial class MainWindow : Window
 
         var tabWidth = Width * dpi.DpiScaleX;
         var tabHeight = Height * dpi.DpiScaleY;
-        var centeredLeft = work.Left + Math.Max(0, (work.Width - tabWidth) / 2);
-        var centeredTop = work.Top + Math.Max(0, (work.Height - tabHeight) / 2);
+        var margin = CollapsedEdgeMarginDip * Math.Max(dpi.DpiScaleX, dpi.DpiScaleY);
+
+        // Keep the tab where the panel was, not at the middle of the edge.
+        // A board parked near the top-right corner therefore produces a tab
+        // near that corner; it is still clamped away from the edge corners.
+        var expanded = _expandedScreenPixels.Width > 0 && _expandedScreenPixels.Height > 0
+            ? _expandedScreenPixels
+            : new Rect(origin.X, origin.Y, tabWidth, tabHeight);
 
         var targetLeft = edge switch
         {
             DockEdge.Right => work.Right - tabWidth,
             DockEdge.Left => work.Left,
-            _ => centeredLeft
+            _ => Math.Clamp(
+                expanded.Left + expanded.Width / 2 - tabWidth / 2,
+                work.Left + margin,
+                Math.Max(work.Left + margin, work.Right - tabWidth - margin))
         };
         var targetTop = edge switch
         {
             DockEdge.Bottom => work.Bottom - tabHeight,
             DockEdge.Top => work.Top,
-            _ => centeredTop
+            _ => Math.Clamp(
+                expanded.Top + expanded.Height / 2 - tabHeight / 2,
+                work.Top + margin,
+                Math.Max(work.Top + margin, work.Bottom - tabHeight - margin))
         };
 
         Left += (targetLeft - origin.X) / dpi.DpiScaleX;
@@ -1379,18 +1512,79 @@ public partial class MainWindow : Window
 
     private void ExpandPanel()
     {
-        if (!_isCollapsed) return;
+        if (!_isCollapsed || _previewMode || _closing || _animating) return;
         _isCollapsed = false;
+        HideTrayIcon();
         CollapsedTab.Visibility = Visibility.Collapsed;
-        PanelContainer.Visibility = Visibility.Visible;
-        ResizeLayer.Visibility = Visibility.Visible;
+        CollapsedTab.RenderTransform = null;
+        CollapsedTab.Opacity = 1;
+        // Resizing the tab window back to the full board would briefly show the
+        // panel at the tab position before it can be moved off-screen. Keep the
+        // root invisible until the off-screen start position is applied.
+        WindowRoot.Opacity = 0;
 
         MinWidth = MinimumWindowWidth;
         MinHeight = MinimumWindowHeight;
         Width = Math.Max(MinimumWindowWidth, _expandedWidth);
         Height = Math.Max(MinimumWindowHeight, _expandedHeight);
+        PanelContainer.Visibility = Visibility.Visible;
+        ResizeLayer.Visibility = Visibility.Visible;
+        UpdateLayout();
+
+        if (!_animationsEnabled)
+        {
+            Left = _expandedLeft;
+            Top = _expandedTop;
+            FinishExpand();
+            return;
+        }
+
+        _animating = true;
+        WindowRoot.IsHitTestVisible = false;
+        var (startLeft, startTop) = ExpandOffscreenStart();
+        Left = startLeft;
+        Top = startTop;
+        UpdateLayout();
+        WindowRoot.Opacity = 1;
+
+        AnimateWindowTo(_expandedLeft, _expandedTop, ExpandSlideMilliseconds, EasingMode.EaseOut, FinishExpand);
+    }
+
+    private (double Left, double Top) ExpandOffscreenStart()
+    {
+        var work = ScreenUtil.GetWorkAreaPixels(this);
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var origin = PointToScreen(new Point(0, 0));
+        var left = _expandedLeft;
+        var top = _expandedTop;
+
+        switch (_dockEdge)
+        {
+            case DockEdge.Left:
+                left = Left + (work.Left - Width * dpi.DpiScaleX - origin.X) / dpi.DpiScaleX;
+                break;
+            case DockEdge.Right:
+                left = Left + (work.Right - origin.X) / dpi.DpiScaleX;
+                break;
+            case DockEdge.Top:
+                top = Top + (work.Top - Height * dpi.DpiScaleY - origin.Y) / dpi.DpiScaleY;
+                break;
+            case DockEdge.Bottom:
+                top = Top + (work.Bottom - origin.Y) / dpi.DpiScaleY;
+                break;
+        }
+
+        return (left, top);
+    }
+
+    private void FinishExpand()
+    {
+        if (_closing) return;
         Left = _expandedLeft;
         Top = _expandedTop;
+        _animating = false;
+        WindowRoot.Opacity = 1;
+        WindowRoot.IsHitTestVisible = true;
         UpdateLayout();
         ClampNotesToCanvas();
         HideTrayIcon();
@@ -1398,6 +1592,52 @@ public partial class MainWindow : Window
         UpdateEmptyHint();
         UpdateEdgeIndicator();
         ScheduleAutoHide(1.8);
+    }
+
+    private void AnimateWindowTo(double targetLeft, double targetTop, int milliseconds,
+        EasingMode easingMode, Action completed)
+    {
+        var duration = TimeSpan.FromMilliseconds(milliseconds);
+        var ease = new CubicEase { EasingMode = easingMode };
+        var leftAnimation = new DoubleAnimation(targetLeft, duration)
+        {
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd
+        };
+        var topAnimation = new DoubleAnimation(targetTop, duration)
+        {
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd
+        };
+
+        leftAnimation.Completed += (_, _) =>
+        {
+            if (_closing) return;
+            BeginAnimation(LeftProperty, null);
+            BeginAnimation(TopProperty, null);
+            Left = targetLeft;
+            Top = targetTop;
+            completed();
+        };
+
+        BeginAnimation(LeftProperty, leftAnimation);
+        BeginAnimation(TopProperty, topAnimation);
+    }
+
+    private void StopAnimations()
+    {
+        _animating = false;
+        BeginAnimation(LeftProperty, null);
+        BeginAnimation(TopProperty, null);
+        CollapsedTab.BeginAnimation(OpacityProperty, null);
+        if (CollapsedTab.RenderTransform is ScaleTransform scale)
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        }
+        CollapsedTab.RenderTransform = null;
+        WindowRoot.Opacity = 1;
+        WindowRoot.IsHitTestVisible = true;
     }
 
     // -------------------------------------------------------------------- tray
@@ -1609,7 +1849,10 @@ public partial class MainWindow : Window
                 CollapsedTab.Width = CollapsedTabThicknessDip;
                 CollapsedTab.Height = CollapsedTabLengthDip;
                 CollapsedTab.HorizontalAlignment = HorizontalAlignment.Right;
-                CollapsedTab.VerticalAlignment = VerticalAlignment.Center;
+                CollapsedTab.VerticalAlignment = VerticalAlignment.Top;
+                // Representative of the default top-right panel location rather
+                // than a tab artificially parked at the middle of the edge.
+                CollapsedTab.Margin = new Thickness(0, 86, 0, 0);
                 break;
         }
 

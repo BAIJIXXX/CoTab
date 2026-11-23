@@ -36,17 +36,25 @@ public static class ScreenUtil
         var dpi = VisualTreeHelper.GetDpi(window);
         var threshold = thresholdDip * Math.Max(dpi.DpiScaleX, dpi.DpiScaleY);
 
-        var distances = new[]
-        {
-            (Edge: DockEdge.Left, Distance: Math.Abs(win.Left - work.Left)),
-            (Edge: DockEdge.Right, Distance: Math.Abs(work.Right - win.Right)),
-            (Edge: DockEdge.Top, Distance: Math.Abs(win.Top - work.Top)),
-            (Edge: DockEdge.Bottom, Distance: Math.Abs(work.Bottom - win.Bottom))
-        };
-
+        var distances = EdgeDistances(win, work);
         var best = distances.OrderBy(d => d.Distance).First();
         return best.Distance <= threshold ? best.Edge : DockEdge.None;
     }
+
+    /// <summary>
+    /// Distance from each work-area edge to the corresponding window edge.
+    /// A negative distance (the window extends past the edge) is treated as 0:
+    /// a partially off-screen panel is already docked and must be able to
+    /// auto-collapse instead of being ignored as "too far from the edge".
+    /// </summary>
+    private static (DockEdge Edge, double Distance)[] EdgeDistances(Rect win, Rect work) =>
+        new[]
+        {
+            (Edge: DockEdge.Left, Distance: Math.Max(0, win.Left - work.Left)),
+            (Edge: DockEdge.Right, Distance: Math.Max(0, work.Right - win.Right)),
+            (Edge: DockEdge.Top, Distance: Math.Max(0, win.Top - work.Top)),
+            (Edge: DockEdge.Bottom, Distance: Math.Max(0, work.Bottom - win.Bottom))
+        };
 
     /// <summary>The nearest work-area edge, regardless of the dock threshold.</summary>
     public static DockEdge NearestEdge(Window window)
@@ -54,15 +62,7 @@ public static class ScreenUtil
         var win = GetWindowPixels(window);
         var work = GetWorkAreaPixels(window);
 
-        var distances = new[]
-        {
-            (Edge: DockEdge.Left, Distance: Math.Abs(win.Left - work.Left)),
-            (Edge: DockEdge.Right, Distance: Math.Abs(work.Right - win.Right)),
-            (Edge: DockEdge.Top, Distance: Math.Abs(win.Top - work.Top)),
-            (Edge: DockEdge.Bottom, Distance: Math.Abs(work.Bottom - win.Bottom))
-        };
-
-        return distances.OrderBy(d => d.Distance).First().Edge;
+        return EdgeDistances(win, work).OrderBy(d => d.Distance).First().Edge;
     }
 
     /// <summary>Moves the window so the requested edge sits exactly on the monitor work-area edge.</summary>
