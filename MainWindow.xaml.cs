@@ -25,6 +25,11 @@ public partial class MainWindow : Window
     private const int CollapseSlideMilliseconds = 240;
     private const int CollapseTabMilliseconds = 170;
     private const int ExpandSlideMilliseconds = 280;
+    private const int BoardOpenMilliseconds = 320;
+    private const int BoardCloseMilliseconds = 260;
+    private const int BoardRailMilliseconds = 300;
+    private const int BoardNoteMilliseconds = 240;
+    private const int BoardNoteStaggerMilliseconds = 45;
     private const double MinimumWindowWidth = 360;
     private const double MinimumWindowHeight = 420;
 
@@ -68,6 +73,7 @@ public partial class MainWindow : Window
     private Forms.ContextMenuStrip? _trayMenu;
     private Drawing.Icon? _trayDrawingIcon;
     private DispatcherTimer? _trayStartupTimer;
+    private Border? _boardOverlay;
 
     public MainWindow() : this(new AppState())
     {
@@ -514,6 +520,7 @@ public partial class MainWindow : Window
 
     private void AddNote()
     {
+        if (_animating) return;
         if (IsMultiBoard && !IsBoardOpen)
         {
             AddBoard();
@@ -546,6 +553,7 @@ public partial class MainWindow : Window
         canvas.Children.Add(note);
         _notes.Add(note);
         ActiveNoteModels.Add(model);
+        if (IsBoardOpen) AnimateNoteIn(note, _notes.Count - 1);
 
         UpdateBoardHeader();
         UpdateEmptyHint();
@@ -720,7 +728,8 @@ public partial class MainWindow : Window
             BorderBrush = new SolidColorBrush(ColorUtil.WithAlpha(ink, 0.16)),
             BorderThickness = new Thickness(1),
             Cursor = Cursors.Hand,
-            ToolTip = board.Title
+            ToolTip = board.Title,
+            Tag = board.Id
         };
 
         var grid = new Grid();
@@ -802,23 +811,37 @@ public partial class MainWindow : Window
 
     private void OpenBoard(SubBoardModel board)
     {
-        if (!_state.Boards.Contains(board)) return;
+        if (!_state.Boards.Contains(board) || _animating) return;
         if (_isCollapsed) ExpandPanel();
         if (_settingsOpen) HideSettings();
+
+        var oldBounds = CaptureBoardCardBounds();
         _activeBoard = board;
         BoardHome.Visibility = Visibility.Collapsed;
         BoardView.Visibility = Visibility.Visible;
+        Panel.SetZIndex(BoardSurface, 5);
         BuildBoardRail();
         ApplyBoardSurfaceTheme();
         RefreshModeChrome();
         UpdateLayout();
         ReloadNotes();
         QueueSave();
+        AnimateBoardOpen(board, oldBounds);
     }
 
-    private void GoHome()
+    private void GoHome(bool animate = true)
     {
-        if (!IsBoardOpen) return;
+        if (!IsBoardOpen || _animating) return;
+        if (animate && _animationsEnabled && !_previewMode && !_closing)
+        {
+            AnimateBoardClose();
+            return;
+        }
+        CloseBoardImmediate();
+    }
+
+    private void CloseBoardImmediate()
+    {
         _activeBoard = null;
         BoardView.Visibility = Visibility.Collapsed;
         BoardHome.Visibility = Visibility.Visible;
@@ -828,6 +851,296 @@ public partial class MainWindow : Window
         UpdateLayout();
         ReloadNotes();
         QueueSave();
+    }
+
+    private Dictionary<string, Rect> CaptureBoardCardBounds()
+    {
+        var result = new Dictionary<string, Rect>(StringComparer.OrdinalIgnoreCase);
+        if (BoardHome.Visibility == Visibility.Visible)
+        {
+            foreach (var card in BoardsPanel.Children.OfType<Border>())
+            {
+                if (card.Tag is not string id) continue;
+                var bounds = BoundsInContentRoot(card);
+                if (!bounds.IsEmpty) result[id] = bounds;
+            }
+        }
+
+        if (BoardView.Visibility == Visibility.Visible && _activeBoard != null)
+        {
+            var bounds = BoundsInContentRoot(BoardSurface);
+            if (!bounds.IsEmpty) result[_activeBoard.Id] = bounds;
+            foreach (var card in BoardsRailPanel.Children.OfType<Border>())
+            {
+                if (card.Tag is not string id) continue;
+                var railBounds = BoundsInContentRoot(card);
+                if (!railBounds.IsEmpty) result[id] = railBounds;
+            }
+        }
+        return result;
+    }
+
+    private Rect BoundsInContentRoot(FrameworkElement element)
+    {
+        try
+        {
+            var origin = element.TransformToAncestor(ContentRoot).Transform(new Point(0, 0));
+            return new Rect(origin.X, origin.Y, element.ActualWidth, element.ActualHeight);
+        }
+        catch
+        {
+            return Rect.Empty;
+        }
+    }
+
+    private void AnimateBoardOpen(SubBoardModel board, Dictionary<string, Rect> oldBounds)
+    {
+        if (!_animationsEnabled || _previewMode || _closing)
+        {
+            AnimateBoardNotesIn();
+            return;
+        }
+
+        var end = BoundsInContentRoot(BoardSurface);
+        if (end.IsEmpty)
+        {
+            AnimateBoardNotesIn();
+            return;
+        }
+
+        _animating = true;
+        BoardView.IsHitTestVisible = false;
+        AnimateRailCardsIn(oldBounds);
+
+        var duration = new Duration(TimeSpan.FromMilliseconds(BoardOpenMilliseconds));
+        var ease = new CubicEase { EasingMode = EasingMode.EaseInOut };
+
+        if (oldBounds.TryGetValue(board.Id, out var start) && start.Width > 4 && start.Height > 4)
+        {
+            BoardSurface.Opacity = 0;
+            var overlay = CreateBoardOverlay(board);
+            overlay.Width = start.Width;
+            overlay.Height = start.Height;
+            overlay.Margin = new Thickness(start.X, start.Y, 0, 0);
+            Panel.SetZIndex(overlay, 40);
+            _boardOverlay = overlay;
+            ContentRoot.Children.Add(overlay);
+
+            var marginAnim = new ThicknessAnimation(new Thickness(end.X, end.Y, 0, 0), duration)
+            {
+                EasingFunction = ease,
+                FillBehavior = FillBehavior.HoldEnd
+            };
+            marginAnim.Completed += (_, _) => FinishBoardOpenAnimation();
+            overlay.BeginAnimation(FrameworkElement.WidthProperty, new DoubleAnimation(end.Width, duration)
+            {
+                EasingFunction = ease,
+                FillBehavior = FillBehavior.HoldEnd
+            });
+            overlay.BeginAnimation(FrameworkElement.HeightProperty, new DoubleAnimation(end.Height, duration)
+            {
+                EasingFunction = ease,
+                FillBehavior = FillBehavior.HoldEnd
+            });
+            overlay.BeginAnimation(FrameworkElement.MarginProperty, marginAnim);
+            return;
+        }
+
+        BoardSurface.Opacity = 0;
+        var scale = new ScaleTransform(0.92, 0.92);
+        BoardSurface.RenderTransformOrigin = new Point(0.5, 0.5);
+        BoardSurface.RenderTransform = scale;
+        var fade = new DoubleAnimation(1, duration) { EasingFunction = ease, FillBehavior = FillBehavior.HoldEnd };
+        fade.Completed += (_, _) => FinishBoardOpenAnimation();
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, duration) { EasingFunction = ease });
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, duration) { EasingFunction = ease });
+        BoardSurface.BeginAnimation(UIElement.OpacityProperty, fade);
+    }
+
+    private void FinishBoardOpenAnimation()
+    {
+        if (_closing) return;
+        if (_boardOverlay != null)
+        {
+            ContentRoot.Children.Remove(_boardOverlay);
+            _boardOverlay = null;
+        }
+        BoardSurface.BeginAnimation(UIElement.OpacityProperty, null);
+        BoardSurface.Opacity = 1;
+        BoardSurface.RenderTransform = null;
+        BoardView.IsHitTestVisible = true;
+        _animating = false;
+        AnimateBoardNotesIn();
+    }
+
+    private Border CreateBoardOverlay(SubBoardModel board)
+    {
+        var color = ColorUtil.Parse(board.Color, ColorUtil.Parse("#E9E3D5", Colors.White));
+        var ink = BoardInk(color);
+        return new Border
+        {
+            CornerRadius = new CornerRadius(10),
+            Background = new SolidColorBrush(ColorUtil.WithAlpha(color, 0.96)),
+            BorderBrush = new SolidColorBrush(ColorUtil.WithAlpha(ink, 0.18)),
+            BorderThickness = new Thickness(1),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top,
+            IsHitTestVisible = false,
+            Child = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(board.Title) ? "未命名板块" : board.Title,
+                Foreground = new SolidColorBrush(ink),
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(12, 9, 12, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis
+            }
+        };
+    }
+
+    private void AnimateRailCardsIn(Dictionary<string, Rect> oldBounds)
+    {
+        if (!_animationsEnabled || _previewMode || oldBounds.Count == 0) return;
+        var duration = new Duration(TimeSpan.FromMilliseconds(BoardRailMilliseconds));
+        var ease = new CubicEase { EasingMode = EasingMode.EaseInOut };
+        foreach (var card in BoardsRailPanel.Children.OfType<Border>())
+        {
+            if (card.Tag is not string id || !oldBounds.TryGetValue(id, out var oldRect)) continue;
+            var newRect = BoundsInContentRoot(card);
+            if (newRect.IsEmpty) continue;
+
+            var offset = new TranslateTransform(oldRect.X - newRect.X, oldRect.Y - newRect.Y);
+            card.RenderTransform = offset;
+            card.Opacity = 0.15;
+            offset.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, duration) { EasingFunction = ease });
+            offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, duration) { EasingFunction = ease });
+            card.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(1, duration) { EasingFunction = ease });
+        }
+    }
+
+    private void AnimateBoardNotesIn()
+    {
+        if (!_animationsEnabled || _previewMode) return;
+        for (var i = 0; i < _notes.Count; i++)
+        {
+            AnimateNoteIn(_notes[i], i);
+        }
+    }
+
+    private void AnimateNoteIn(NoteControl note, int index)
+    {
+        if (!_animationsEnabled || _previewMode) return;
+        var duration = new Duration(TimeSpan.FromMilliseconds(BoardNoteMilliseconds));
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var offset = new TranslateTransform(0, 16);
+        note.RenderTransform = offset;
+        note.Opacity = 0;
+        var delay = TimeSpan.FromMilliseconds(index * BoardNoteStaggerMilliseconds);
+        var fade = new DoubleAnimation(1, duration) { BeginTime = delay, EasingFunction = ease, FillBehavior = FillBehavior.HoldEnd };
+        note.BeginAnimation(UIElement.OpacityProperty, fade);
+        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, duration)
+        {
+            BeginTime = delay,
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd
+        });
+    }
+
+    private void AnimateBoardClose()
+    {
+        var width = BoardSurface.ActualWidth;
+        var height = BoardSurface.ActualHeight;
+        if (width < 1 || height < 1)
+        {
+            CloseBoardImmediate();
+            return;
+        }
+
+        _animating = true;
+        BoardView.IsHitTestVisible = false;
+        BoardSurface.HorizontalAlignment = HorizontalAlignment.Left;
+        BoardSurface.VerticalAlignment = VerticalAlignment.Top;
+        BoardSurface.Width = width;
+        BoardSurface.Height = height;
+
+        var duration = new Duration(TimeSpan.FromMilliseconds(BoardCloseMilliseconds));
+        var ease = new CubicEase { EasingMode = EasingMode.EaseInOut };
+        var targetWidth = Math.Max(96, width * 0.24);
+        var targetHeight = Math.Max(72, height * 0.24);
+        var widthAnim = new DoubleAnimation(targetWidth, duration) { EasingFunction = ease, FillBehavior = FillBehavior.HoldEnd };
+        widthAnim.Completed += (_, _) => FinishBoardCloseAnimation();
+        BoardSurface.BeginAnimation(FrameworkElement.WidthProperty, widthAnim);
+        BoardSurface.BeginAnimation(FrameworkElement.HeightProperty, new DoubleAnimation(targetHeight, duration)
+        {
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd
+        });
+        BoardSurface.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, duration)
+        {
+            BeginTime = TimeSpan.FromMilliseconds(70),
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd
+        });
+        BoardsRailScroll.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, duration)
+        {
+            EasingFunction = ease,
+            FillBehavior = FillBehavior.HoldEnd
+        });
+    }
+
+    private void FinishBoardCloseAnimation()
+    {
+        if (_closing) return;
+        BoardSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+        BoardSurface.BeginAnimation(FrameworkElement.HeightProperty, null);
+        BoardSurface.BeginAnimation(UIElement.OpacityProperty, null);
+        BoardsRailScroll.BeginAnimation(UIElement.OpacityProperty, null);
+        BoardSurface.Width = double.NaN;
+        BoardSurface.Height = double.NaN;
+        BoardSurface.Opacity = 1;
+        BoardSurface.HorizontalAlignment = HorizontalAlignment.Stretch;
+        BoardSurface.VerticalAlignment = VerticalAlignment.Stretch;
+        BoardsRailScroll.Opacity = 1;
+        BoardView.IsHitTestVisible = true;
+        _animating = false;
+        CloseBoardImmediate();
+
+        BoardHome.Opacity = 0;
+        var fade = new DoubleAnimation(1, new Duration(TimeSpan.FromMilliseconds(180)))
+        {
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+            FillBehavior = FillBehavior.HoldEnd
+        };
+        fade.Completed += (_, _) =>
+        {
+            BoardHome.BeginAnimation(UIElement.OpacityProperty, null);
+            BoardHome.Opacity = 1;
+        };
+        BoardHome.BeginAnimation(UIElement.OpacityProperty, fade);
+    }
+
+    private void StopBoardAnimations()
+    {
+        if (_boardOverlay != null)
+        {
+            ContentRoot.Children.Remove(_boardOverlay);
+            _boardOverlay = null;
+        }
+        BoardSurface.BeginAnimation(FrameworkElement.WidthProperty, null);
+        BoardSurface.BeginAnimation(FrameworkElement.HeightProperty, null);
+        BoardSurface.BeginAnimation(UIElement.OpacityProperty, null);
+        BoardsRailScroll.BeginAnimation(UIElement.OpacityProperty, null);
+        BoardSurface.Width = double.NaN;
+        BoardSurface.Height = double.NaN;
+        BoardSurface.Opacity = 1;
+        BoardSurface.RenderTransform = null;
+        BoardSurface.HorizontalAlignment = HorizontalAlignment.Stretch;
+        BoardSurface.VerticalAlignment = VerticalAlignment.Stretch;
+        BoardsRailScroll.Opacity = 1;
+        BoardView.IsHitTestVisible = true;
+        BoardHome.BeginAnimation(UIElement.OpacityProperty, null);
+        BoardHome.Opacity = 1;
+        _animating = false;
     }
 
     private void DeleteBoard(SubBoardModel board)
@@ -2056,6 +2369,7 @@ public partial class MainWindow : Window
 
     private void StopAnimations()
     {
+        StopBoardAnimations();
         _animating = false;
         BeginAnimation(LeftProperty, null);
         BeginAnimation(TopProperty, null);
