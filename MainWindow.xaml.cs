@@ -176,6 +176,10 @@ public partial class MainWindow : Window
         UpdateEdgeIndicator();
         if (_dockEdge != DockEdge.None)
             ScheduleAutoHide(1.8);
+
+        // Give restored notes the same entrance as notes created later. In
+        // multi-board home there is no note surface, so this is a no-op there.
+        AnimateVisibleNotesIn();
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
@@ -553,7 +557,7 @@ public partial class MainWindow : Window
         canvas.Children.Add(note);
         _notes.Add(note);
         ActiveNoteModels.Add(model);
-        if (IsBoardOpen) AnimateNoteIn(note, _notes.Count - 1);
+        AnimateNoteIn(note, 0);
 
         UpdateBoardHeader();
         UpdateEmptyHint();
@@ -609,6 +613,7 @@ public partial class MainWindow : Window
         var note = CreateNote(model);
         ActiveCanvas.Children.Add(note);
         _notes.Add(note);
+        AnimateNoteIn(note, 0);
         UpdateBoardHeader();
         UpdateEmptyHint();
         QueueSave();
@@ -1018,9 +1023,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void AnimateBoardNotesIn()
+    private void AnimateBoardNotesIn() => AnimateVisibleNotesIn();
+
+    private void AnimateVisibleNotesIn()
     {
         if (!_animationsEnabled || _previewMode) return;
+        if (IsMultiBoard && !IsBoardOpen) return;
         for (var i = 0; i < _notes.Count; i++)
         {
             AnimateNoteIn(_notes[i], i);
@@ -1236,6 +1244,7 @@ public partial class MainWindow : Window
         ApplyTheme();
         ApplyBackground();
         RefreshSettingsUi();
+        AnimateVisibleNotesIn();
         QueueSave();
         ShowToast(mode == AppMode.MultiBoard ? "已切换到多板模式" : "已切换到极简模式");
     }
