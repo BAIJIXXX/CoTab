@@ -137,6 +137,7 @@ public static class StateStore
 
         var s = state.Settings;
         if (!Enum.IsDefined(s.Mode)) s.Mode = AppMode.Minimal;
+        if (!Enum.IsDefined(s.CloseAction)) s.CloseAction = CloseAction.MinimizeToTray;
         s.PanelOpacity = Math.Clamp(s.PanelOpacity, 0.18, 1.0);
         s.BackgroundImageOpacity = Math.Clamp(s.BackgroundImageOpacity, 0.15, 1.0);
         s.PanelColor = NormalizeColor(s.PanelColor, "#FFFFFF");

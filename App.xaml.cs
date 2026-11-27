@@ -75,7 +75,11 @@ public partial class App : Application
         {
             var handle = NativeMethods.FindWindow(null, "CoTab 便签板");
             if (handle == IntPtr.Zero) return;
-            if (NativeMethods.IsIconic(handle)) NativeMethods.ShowWindow(handle, NativeMethods.SwRestore);
+            if (NativeMethods.IsIconic(handle))
+                NativeMethods.ShowWindow(handle, NativeMethods.SwRestore);
+            else
+                NativeMethods.ShowWindow(handle, NativeMethods.SwShow);
+            NativeMethods.PostMessage(handle, CoTab.MainWindow.ShowRequestMessage, IntPtr.Zero, IntPtr.Zero);
             NativeMethods.SetForegroundWindow(handle);
         }
         catch

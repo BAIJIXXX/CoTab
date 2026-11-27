@@ -17,6 +17,12 @@ public enum AppMode
     MultiBoard
 }
 
+public enum CloseAction
+{
+    MinimizeToTray,
+    Exit
+}
+
 public sealed class SettingsModel
 {
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -32,6 +38,9 @@ public sealed class SettingsModel
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public PanelBackgroundStyle BackgroundStyle { get; set; } = PanelBackgroundStyle.Blank;
+
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public CloseAction CloseAction { get; set; } = CloseAction.MinimizeToTray;
 
     public string? BackgroundImagePath { get; set; }
     public double BackgroundImageOpacity { get; set; } = 0.9;

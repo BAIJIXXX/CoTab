@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
@@ -19,6 +20,8 @@ namespace CoTab;
 
 public partial class MainWindow : Window
 {
+    public const int ShowRequestMessage = 0x8001;
+
     private const double CollapsedTabThicknessDip = 14;
     private const double CollapsedTabLengthDip = 88;
     private const double CollapsedEdgeMarginDip = 24;
@@ -36,6 +39,7 @@ public partial class MainWindow : Window
     private readonly bool _animationsEnabled = !string.Equals(
         Environment.GetEnvironmentVariable("COTAB_DISABLE_ANIMATIONS"), "1", StringComparison.OrdinalIgnoreCase);
     private bool _animating;
+    private bool _previewSettingsScrollToEnd;
 
     private readonly AppState _state;
     private readonly bool _previewMode;
@@ -54,6 +58,7 @@ public partial class MainWindow : Window
     private bool _uiUpdating;
     private bool _settingsOpen;
     private bool _isCollapsed;
+    private bool _hiddenToTray;
     private bool _closing;
     private bool _suppressAutoHide;
     private bool _resizingWindow;
@@ -149,6 +154,25 @@ public partial class MainWindow : Window
         }
     }
 
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        if (PresentationSource.FromVisual(this) is HwndSource source)
+            source.AddHook(WndProc);
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        // A second CoTab launch cannot call methods in this process, so it posts
+        // this message to bring a tray-hidden window back to the foreground.
+        if (msg == ShowRequestMessage)
+        {
+            handled = true;
+            Dispatcher.BeginInvoke(new Action(RestoreFromTray));
+        }
+        return IntPtr.Zero;
+    }
+
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         if (_previewMode) return;
@@ -218,7 +242,7 @@ public partial class MainWindow : Window
 
     private void Window_Deactivated(object? sender, EventArgs e)
     {
-        if (_previewMode || _settingsOpen || _noteMenuOpen || _isCollapsed) return;
+        if (_previewMode || _hiddenToTray || _settingsOpen || _noteMenuOpen || _isCollapsed) return;
         if (Application.Current?.Windows.OfType<Window>().Any(w => !ReferenceEquals(w, this) && w.IsVisible) == true)
             return;
         if (_state.Settings.AutoHide)
@@ -1249,6 +1273,24 @@ public partial class MainWindow : Window
         ShowToast(mode == AppMode.MultiBoard ? "已切换到多板模式" : "已切换到极简模式");
     }
 
+    private void CloseAction_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_uiUpdating || sender is not RadioButton radio || radio.Tag is not string tag) return;
+        if (!Enum.TryParse<CloseAction>(tag, true, out var action)) return;
+        if (_state.Settings.CloseAction == action) return;
+        _state.Settings.CloseAction = action;
+        UpdateCloseButtonToolTip();
+        QueueSave();
+        ShowToast(action == CloseAction.MinimizeToTray ? "关闭按钮：最小化到托盘" : "关闭按钮：退出程序");
+    }
+
+    private void UpdateCloseButtonToolTip()
+    {
+        CloseButton.ToolTip = _state.Settings.CloseAction == CloseAction.MinimizeToTray
+            ? "最小化到系统托盘"
+            : "退出 CoTab";
+    }
+
     private void BackButton_Click(object sender, RoutedEventArgs e) => GoHome();
 
     private void SidebarToggleButton_Click(object sender, RoutedEventArgs e)
@@ -1659,6 +1701,9 @@ public partial class MainWindow : Window
             StartupSwitch.IsChecked = settings.StartWithWindows;
             TrashSwitch.IsChecked = settings.TrashEnabled;
             ConfirmDeleteSwitch.IsChecked = settings.ConfirmTrashDelete;
+            CloseMinimizeRadio.IsChecked = settings.CloseAction == CloseAction.MinimizeToTray;
+            CloseExitRadio.IsChecked = settings.CloseAction == CloseAction.Exit;
+            UpdateCloseButtonToolTip();
 
             var hasImage = !string.IsNullOrWhiteSpace(settings.BackgroundImagePath) && File.Exists(settings.BackgroundImagePath);
             ImageNameText.Text = hasImage
@@ -1943,7 +1988,50 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_animating) return;
+        if (_state.Settings.CloseAction == CloseAction.MinimizeToTray)
+            MinimizeToTray();
+        else
+            Close();
+    }
+
+    private void MinimizeToTray()
+    {
+        if (_previewMode || _hiddenToTray || _isCollapsed) return;
+
+        // Do not hide the window if the shell rejected the tray icon; otherwise
+        // the process would keep running with no visible way back.
+        ShowTrayIcon();
+        if (_trayIcon == null)
+        {
+            ShowToast("无法创建系统托盘图标，已取消最小化");
+            return;
+        }
+
+        EndAllEdits();
+        _autoHideTimer.Stop();
+        _toastTimer.Stop();
+        SaveNow();
+        _hiddenToTray = true;
+        Hide();
+    }
+
+    private void RestoreFromTray()
+    {
+        if (_closing) return;
+        _hiddenToTray = false;
+        if (_isCollapsed)
+            ExpandPanel();
+        if (!IsVisible)
+            Show();
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
+        Activate();
+        if (_state.Settings.AutoHide)
+            ScheduleAutoHide(1.4);
+    }
 
     private void AddNoteButton_Click(object sender, RoutedEventArgs e) => AddNote();
 
@@ -2022,7 +2110,7 @@ public partial class MainWindow : Window
 
     private void ScheduleAutoHide(double seconds)
     {
-        if (_previewMode || _closing || _animating || !_state.Settings.AutoHide || _isCollapsed ||
+        if (_previewMode || _closing || _hiddenToTray || _animating || !_state.Settings.AutoHide || _isCollapsed ||
             _suppressAutoHide || _settingsOpen || _noteMenuOpen || _resizingWindow)
             return;
 
@@ -2039,7 +2127,7 @@ public partial class MainWindow : Window
     private void AutoHideTimer_Tick(object? sender, EventArgs e)
     {
         _autoHideTimer.Stop();
-        if (_previewMode || _closing || _animating || !_state.Settings.AutoHide || _isCollapsed) return;
+        if (_previewMode || _closing || _hiddenToTray || _animating || !_state.Settings.AutoHide || _isCollapsed) return;
         if (IsMouseOver || _settingsOpen || _noteMenuOpen || _resizingWindow ||
             _pendingDelete != null || _notes.Any(n => n.IsEditing) ||
             Application.Current?.Windows.OfType<Window>().Any(w => !ReferenceEquals(w, this) && w.IsVisible) == true)
@@ -2539,12 +2627,7 @@ public partial class MainWindow : Window
         return (Drawing.Icon)Drawing.SystemIcons.Application.Clone();
     }
 
-    private void ExpandFromTray()
-    {
-        if (_isCollapsed) ExpandPanel();
-        if (!IsVisible) Show();
-        Activate();
-    }
+    private void ExpandFromTray() => RestoreFromTray();
 
     private void DisposeTrayIcon()
     {
@@ -2648,7 +2731,15 @@ public partial class MainWindow : Window
 
     public FrameworkElement PreviewRoot => WindowRoot;
 
-    public void PreviewLayoutComplete() => ClampNotesToCanvas();
+    public void PreviewLayoutComplete()
+    {
+        ClampNotesToCanvas();
+        if (_previewSettingsScrollToEnd)
+        {
+            SettingsScroll.ScrollToEnd();
+            UpdateLayout();
+        }
+    }
 
     public void ApplyPreviewScene(string scene)
     {
@@ -2663,6 +2754,10 @@ public partial class MainWindow : Window
                 break;
             case "settings":
             case "multi-settings":
+                ShowSettingsPreview();
+                break;
+            case "settings-behavior":
+                _previewSettingsScrollToEnd = true;
                 ShowSettingsPreview();
                 break;
             case "confirm":
