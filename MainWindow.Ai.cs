@@ -91,6 +91,14 @@ public partial class MainWindow
             };
             _assistantWindow.Closed += (_, _) => _assistantWindow = null;
             _assistantWindow.ApplyTheme();
+            _assistantWindow.ApplyCollapsedState();
+            _assistantWindow.FollowMain();
+        }
+        else
+        {
+            // A window that was previously folded still has ShellBorder collapsed;
+            // bringing it back must restore the shell before Show().
+            _assistantWindow.ApplyCollapsedState();
             _assistantWindow.FollowMain();
         }
 

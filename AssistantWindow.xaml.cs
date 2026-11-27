@@ -600,7 +600,7 @@ public partial class AssistantWindow : Window
         Activate();
     }
 
-    private void ApplyCollapsedState()
+    public void ApplyCollapsedState()
     {
         var collapsed = _state.Settings.AiCollapsed;
         ShellBorder.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
