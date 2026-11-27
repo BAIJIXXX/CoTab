@@ -1,9 +1,12 @@
+using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using CoTab.Helpers;
 using CoTab.Models;
 using CoTab.Services;
@@ -49,6 +52,7 @@ public partial class AssistantWindow : Window
         _schedule = schedule;
         _main = main;
         _tools = new AiToolService(main);
+        AvatarImage.Source = LoadAvatar();
 
         BuildChips();
         ApplyTheme();
@@ -104,9 +108,6 @@ public partial class AssistantWindow : Window
 
         AccentSwatch.Background = _accentBrush;
         AccentHexText.Text = ColorUtil.ToHex(_accentColor).ToUpperInvariant();
-        StatusDot.Fill = HasApiKey()
-            ? new SolidColorBrush(Color.FromRgb(123, 216, 143))
-            : _mutedBrush;
         UpdateStatusCaption();
         if (ScheduleListPanel != null) RefreshSchedule();
     }
@@ -312,7 +313,6 @@ public partial class AssistantWindow : Window
         if (string.IsNullOrWhiteSpace(text)) return;
         AddMessage("suggestion", text);
         _history.Add(AiClient.Message.Assistant(text));
-        if (!IsVisible) StatusDot.Fill = _accentBrush;
     }
 
     private void ShowWelcome()
@@ -379,7 +379,9 @@ public partial class AssistantWindow : Window
 
     private async void InputBox_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter || Keyboard.Modifiers == ModifierKeys.Shift) return;
+        if (e.Key != Key.Enter) return;
+        if (Keyboard.Modifiers == ModifierKeys.Shift) return;
+
         e.Handled = true;
         await SendAsync();
     }
@@ -665,12 +667,10 @@ public partial class AssistantWindow : Window
         {
             var reply = await AiClient.TestAsync(_state.Settings, CancellationToken.None);
             SettingsStatusText.Text = "连接成功：" + reply;
-            StatusDot.Fill = Brush("#7BD88F");
         }
         catch (Exception ex)
         {
             SettingsStatusText.Text = "连接失败：" + ex.Message;
-            StatusDot.Fill = Brush("#E8544A");
         }
     }
 
@@ -737,6 +737,20 @@ public partial class AssistantWindow : Window
         ApplyCollapsedState();
         FollowMain();
         ShowWelcome();
+    }
+
+    private static ImageSource? LoadAvatar()
+    {
+        using var stream = Assembly.GetExecutingAssembly()
+            .GetManifestResourceStream("CoTab.AssistantAvatar.png");
+        if (stream == null) return null;
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
     }
 
     private static SolidColorBrush Brush(string hex) =>

@@ -28,6 +28,7 @@
     <!-- Uncompressed-DIB ICO for the notification area: some Windows shells do
          not render PNG-compressed 16px entries and the tray icon becomes blank. -->
     <Resource Include="Assets\tray.ico" />
+    <EmbeddedResource Include="Assets\assistant-avatar.png" LogicalName="CoTab.AssistantAvatar.png" />
   </ItemGroup>
 
 </Project>

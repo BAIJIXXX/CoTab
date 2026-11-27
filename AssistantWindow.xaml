@@ -272,8 +272,8 @@
 
                 <Grid Grid.Row="0" Margin="12,0,8,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#7BD88F" Margin="0,0,7,0" />
-                        <TextBlock Text="AI 助手" Foreground="{DynamicResource AiTextBrush}" FontSize="12.5" FontWeight="SemiBold" />
+                        <Image x:Name="AvatarImage" Width="24" Height="24" Margin="0,0,8,0" Stretch="Uniform" />
+                        <TextBlock Text="CoChubbyLung" Foreground="{DynamicResource AiTextBrush}" FontSize="12" FontWeight="SemiBold" />
                     </StackPanel>
                     <Button x:Name="CollapseButton" Width="26" Height="26" HorizontalAlignment="Right"
                             Style="{StaticResource IconButtonStyle}" Click="CollapseButton_Click" ToolTip="折叠 AI 窗口">
@@ -310,7 +310,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="InputBox" Style="{StaticResource AiInput}" MinHeight="38" MaxHeight="106"
                                              AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Center"
-                                             BorderThickness="0" Background="Transparent" KeyDown="InputBox_KeyDown"
+                                             BorderThickness="0" Background="Transparent" PreviewKeyDown="InputBox_KeyDown"
                                              TextChanged="InputBox_TextChanged" />
                                     <TextBlock x:Name="InputPlaceholder" Text="问点什么…  Enter 发送，Shift+Enter 换行"
                                                Foreground="{DynamicResource AiMutedBrush}" FontSize="11.5" Margin="10,0,0,0"
