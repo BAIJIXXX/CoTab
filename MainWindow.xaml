@@ -490,6 +490,18 @@
                                 </Grid>
                                 <Border Style="{StaticResource SettingsDivider}" />
 
+                                <TextBlock Text="AI 助手" Style="{StaticResource SettingsSectionTitle}" />
+                                <Grid Height="30">
+                                    <TextBlock Text="启用 AI 辅助窗口" Style="{StaticResource SettingsLabel}" />
+                                    <CheckBox x:Name="AiEnabledSwitch" Style="{StaticResource SwitchStyle}" HorizontalAlignment="Right"
+                                              VerticalAlignment="Center" Click="AiEnabledSwitch_Click" />
+                                </Grid>
+                                <Button x:Name="OpenAssistantButton" Content="打开 AI 助手" Style="{StaticResource SettingsSecondaryButton}"
+                                        HorizontalAlignment="Left" Margin="0,4,0,0" Click="OpenAssistantButton_Click" />
+                                <TextBlock Text="API Key、模型和提示词在 AI 窗口右上角的“设置”页配置。AI 默认静默，只在你提问时工作。"
+                                           Style="{StaticResource SettingsCaption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                                <Border Style="{StaticResource SettingsDivider}" />
+
                                 <TextBlock Text="数据" Style="{StaticResource SettingsSectionTitle}" />
                                 <Button Content="打开配置与背景图片文件夹" Style="{StaticResource SettingsSecondaryButton}"
                                         HorizontalAlignment="Left" Click="OpenDataFolderButton_Click" />

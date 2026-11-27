@@ -21,6 +21,18 @@ public static class ScreenUtil
         return new Rect(0, 0, 1920, 1080);
     }
 
+    /// <summary>Work area of the monitor under the window, in DIPs.</summary>
+    public static Rect GetWorkAreaDip(Window window)
+    {
+        var work = GetWorkAreaPixels(window);
+        var dpi = VisualTreeHelper.GetDpi(window);
+        return new Rect(
+            work.Left / dpi.DpiScaleX,
+            work.Top / dpi.DpiScaleY,
+            work.Width / dpi.DpiScaleX,
+            work.Height / dpi.DpiScaleY);
+    }
+
     /// <summary>Window rectangle in physical screen pixels.</summary>
     public static Rect GetWindowPixels(Window window)
     {

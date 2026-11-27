@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -43,6 +44,7 @@ public partial class MainWindow : Window
 
     private readonly AppState _state;
     private readonly bool _previewMode;
+    private readonly ScheduleService _schedule;
     private readonly List<NoteControl> _notes = new();
     private readonly Dictionary<string, ColorRow> _inkRows = new();
     private SubBoardModel? _activeBoard;
@@ -79,6 +81,10 @@ public partial class MainWindow : Window
     private Drawing.Icon? _trayDrawingIcon;
     private DispatcherTimer? _trayStartupTimer;
     private Border? _boardOverlay;
+    private AssistantWindow? _assistantWindow;
+    private ReminderWindow? _reminderWindow;
+    private DispatcherTimer? _scheduleScanTimer;
+    private DispatcherTimer? _reminderTimer;
 
     public MainWindow() : this(new AppState())
     {
@@ -88,6 +94,8 @@ public partial class MainWindow : Window
     {
         _state = state ?? new AppState();
         _previewMode = previewMode;
+        _schedule = new ScheduleService(_state);
+        _schedule.SuggestionReady += OnScheduleSuggestion;
         _uiUpdating = true;
 
         InitializeComponent();
@@ -125,8 +133,16 @@ public partial class MainWindow : Window
             PreviewMouseMove += Window_PreviewMouseMove;
             PreviewMouseLeftButtonUp += Window_PreviewMouseLeftButtonUp;
             KeyDown += Window_KeyDown;
-            LocationChanged += (_, _) => UpdateEdgeIndicator();
-            SizeChanged += (_, _) => UpdateEdgeIndicator();
+            LocationChanged += (_, _) =>
+            {
+                UpdateEdgeIndicator();
+                _assistantWindow?.FollowMain();
+            };
+            SizeChanged += (_, _) =>
+            {
+                UpdateEdgeIndicator();
+                _assistantWindow?.FollowMain();
+            };
         }
     }
 
@@ -204,6 +220,8 @@ public partial class MainWindow : Window
         // Give restored notes the same entrance as notes created later. In
         // multi-board home there is no note surface, so this is a no-op there.
         AnimateVisibleNotesIn();
+
+        StartAiServices();
     }
 
     private void Window_Closing(object? sender, CancelEventArgs e)
@@ -218,6 +236,12 @@ public partial class MainWindow : Window
         _autoHideTimer.Stop();
         _toastTimer.Stop();
         _trayStartupTimer?.Stop();
+        _scheduleScanTimer?.Stop();
+        _reminderTimer?.Stop();
+        _assistantWindow?.Close();
+        _assistantWindow = null;
+        _reminderWindow?.Close();
+        _reminderWindow = null;
         StopAnimations();
         foreach (var note in _notes.Where(n => n.IsEditing).ToList())
             note.EndEdit();
@@ -325,6 +349,7 @@ public partial class MainWindow : Window
         ApplyInkHalo();
         ApplyChromePills();
         RefreshChromeState();
+        _assistantWindow?.ApplyTheme();
     }
 
     /// <summary>
@@ -510,7 +535,11 @@ public partial class MainWindow : Window
         Canvas.SetLeft(note, model.X);
         Canvas.SetTop(note, model.Y);
 
-        note.Changed += (_, _) => QueueSave();
+        note.Changed += (_, _) =>
+        {
+            QueueSave();
+            QueueScheduleScan();
+        };
         note.EditStarted += (_, _) =>
         {
             _autoHideTimer.Stop();
@@ -519,6 +548,7 @@ public partial class MainWindow : Window
         note.EditFinished += (_, _) =>
         {
             _suppressAutoHide = false;
+            QueueScheduleScan();
             ScheduleAutoHide(1.2);
         };
         note.DragMoved += (_, _) =>
@@ -598,6 +628,8 @@ public partial class MainWindow : Window
         var model = note.Model;
         var ownerNotes = ActiveNoteModels;
         ownerNotes.Remove(model);
+        _schedule.RemoveForNote(model.Id, out var scheduleChanged);
+        if (scheduleChanged) _assistantWindow?.RefreshSchedule();
 
         if (offerUndo)
         {
@@ -1181,6 +1213,7 @@ public partial class MainWindow : Window
         if (index < 0) return;
         var wasActive = ReferenceEquals(board, _activeBoard);
         _state.Boards.RemoveAt(index);
+        _schedule.RemoveForBoard(board.Id, out _);
         if (wasActive) _activeBoard = null;
         BuildBoardHome();
         BuildBoardRail();
@@ -1498,6 +1531,7 @@ public partial class MainWindow : Window
         TopmostSwitch.IsChecked = settings.AlwaysOnTop;
         _uiUpdating = false;
         if (Topmost) Activate();
+        _assistantWindow?.FollowMain();
         RefreshChromeState();
         QueueSave();
         ShowToast(settings.AlwaysOnTop ? "已保持置顶" : "已取消置顶");
@@ -1703,6 +1737,8 @@ public partial class MainWindow : Window
             ConfirmDeleteSwitch.IsChecked = settings.ConfirmTrashDelete;
             CloseMinimizeRadio.IsChecked = settings.CloseAction == CloseAction.MinimizeToTray;
             CloseExitRadio.IsChecked = settings.CloseAction == CloseAction.Exit;
+            AiEnabledSwitch.IsChecked = settings.AiEnabled;
+            OpenAssistantButton.IsEnabled = settings.AiEnabled;
             UpdateCloseButtonToolTip();
 
             var hasImage = !string.IsNullOrWhiteSpace(settings.BackgroundImagePath) && File.Exists(settings.BackgroundImagePath);
@@ -2014,6 +2050,7 @@ public partial class MainWindow : Window
         _autoHideTimer.Stop();
         _toastTimer.Stop();
         SaveNow();
+        HideAssistant();
         _hiddenToTray = true;
         Hide();
     }
@@ -2029,6 +2066,7 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
             WindowState = WindowState.Normal;
         Activate();
+        ShowAssistantAfterRestore();
         if (_state.Settings.AutoHide)
             ScheduleAutoHide(1.4);
     }
@@ -2152,6 +2190,7 @@ public partial class MainWindow : Window
         _expandedScreenPixels = ScreenUtil.GetWindowPixels(this);
 
         _isCollapsed = true;
+        HideAssistant();
         _autoHideTimer.Stop();
         // The compact tab is far smaller than the expanded board; the window's
         // normal minimums must not clamp it back to a full-size rectangle.
@@ -2431,6 +2470,7 @@ public partial class MainWindow : Window
         _dockEdge = ScreenUtil.DetectDock(this);
         UpdateEmptyHint();
         UpdateEdgeIndicator();
+        ShowAssistantAfterRestore();
         ScheduleAutoHide(1.8);
     }
 

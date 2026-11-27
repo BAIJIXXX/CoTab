@@ -132,6 +132,7 @@ public static class StateStore
         state.Settings ??= new SettingsModel();
         state.Notes ??= new List<NoteModel>();
         state.Boards ??= new List<SubBoardModel>();
+        state.ScheduleEvents ??= new List<ScheduleEvent>();
         state.Window ??= new WindowModel();
         state.Version = 2;
 
@@ -146,6 +147,11 @@ public static class StateStore
         s.AddColor = NormalizeColor(s.AddColor, "#3B3C42");
         s.NoteFillColor = NormalizeColor(s.NoteFillColor, "#FFF1B8");
         s.NoteFontColor = NormalizeColor(s.NoteFontColor, "#3D382B");
+        s.AiEndpoint = TrimTo(s.AiEndpoint, 500, "https://api.openai.com/v1");
+        s.AiApiKey = TrimTo(s.AiApiKey, 500, string.Empty);
+        s.AiModel = TrimTo(s.AiModel, 120, "gpt-4o-mini");
+        s.AiSystemPrompt = TrimTo(s.AiSystemPrompt, 4000, string.Empty);
+        s.AiReminderMinutes = Math.Clamp(s.AiReminderMinutes, 1, 120);
         if (string.IsNullOrWhiteSpace(s.BackgroundImagePath) || !File.Exists(s.BackgroundImagePath))
         {
             s.BackgroundImagePath = null;
@@ -180,6 +186,24 @@ public static class StateStore
         }
         state.Boards.RemoveAll(b => b is null);
 
+        var eventIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var evt in state.ScheduleEvents)
+        {
+            if (evt is null) continue;
+            if (string.IsNullOrWhiteSpace(evt.Id) || !eventIds.Add(evt.Id))
+            {
+                evt.Id = Guid.NewGuid().ToString("N");
+                eventIds.Add(evt.Id);
+            }
+            evt.NoteId = TrimTo(evt.NoteId, 80, string.Empty);
+            evt.BoardId = string.IsNullOrWhiteSpace(evt.BoardId) ? null : TrimTo(evt.BoardId, 80, string.Empty);
+            evt.Title = TrimTo(evt.Title, 120, "未命名日程");
+            evt.ReminderMinutes = Math.Clamp(evt.ReminderMinutes, 1, 120);
+            if (evt.SnoozeUntil is { } snooze && snooze.Year < 2000) evt.SnoozeUntil = null;
+        }
+        // Calendar entries are derived from notes; drop entries whose source note is gone.
+        state.ScheduleEvents.RemoveAll(e => e is null || !ids.Contains(e.NoteId) || e.StartAt.Year < 2000);
+
         var w = state.Window;
         if (double.IsNaN(w.Width) || w.Width < 320) w.Width = 400;
         if (double.IsNaN(w.Height) || w.Height < 380) w.Height = 600;
@@ -206,6 +230,12 @@ public static class StateStore
         if (double.IsNaN(note.Height) || note.Height < 110) note.Height = 184;
         note.Width = Math.Clamp(note.Width, 140, 900);
         note.Height = Math.Clamp(note.Height, 110, 1000);
+    }
+
+    private static string TrimTo(string? value, int maxLength, string fallback)
+    {
+        var text = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        return text.Length > maxLength ? text[..maxLength] : text;
     }
 
     public static string NormalizeColor(string? value, string fallback)

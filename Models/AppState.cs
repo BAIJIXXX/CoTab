@@ -8,6 +8,7 @@ public sealed class AppState
     public SettingsModel Settings { get; set; } = new();
     public List<NoteModel> Notes { get; set; } = new();
     public List<SubBoardModel> Boards { get; set; } = new();
+    public List<ScheduleEvent> ScheduleEvents { get; set; } = new();
     public WindowModel Window { get; set; } = new();
 }
 
@@ -55,6 +56,29 @@ public sealed class SettingsModel
 
     public string NoteFillColor { get; set; } = "#FFF1B8";
     public string NoteFontColor { get; set; } = "#3D382B";
+
+    // AI assistant. The window is optional and quiet unless the user asks it something.
+    public bool AiEnabled { get; set; }
+    public bool AiCollapsed { get; set; }
+    public string AiEndpoint { get; set; } = "https://api.openai.com/v1";
+    public string AiApiKey { get; set; } = string.Empty;
+    public string AiModel { get; set; } = "gpt-4o-mini";
+    public string AiSystemPrompt { get; set; } = string.Empty;
+    public bool AiAutoSchedule { get; set; } = true;
+    public bool AiAutoSuggestions { get; set; } = true;
+    public int AiReminderMinutes { get; set; } = 15;
+}
+
+public sealed class ScheduleEvent
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string NoteId { get; set; } = string.Empty;
+    public string? BoardId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public DateTimeOffset StartAt { get; set; }
+    public int ReminderMinutes { get; set; } = 15;
+    public bool Notified { get; set; }
+    public DateTimeOffset? SnoozeUntil { get; set; }
 }
 
 public enum PanelBackgroundStyle
