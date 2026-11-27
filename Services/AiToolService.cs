@@ -28,14 +28,19 @@ public sealed class AiToolService
             bool Flag(string key, bool fallback) => root is { } r && r.TryGetProperty(key, out var value)
                 ? value.ValueKind == JsonValueKind.True || (value.ValueKind == JsonValueKind.String && bool.TryParse(value.GetString(), out var b) && b)
                 : fallback;
+            bool? OptionalFlag(string key) => root is { } r && r.TryGetProperty(key, out var value)
+                ? value.ValueKind == JsonValueKind.True || (value.ValueKind == JsonValueKind.String && bool.TryParse(value.GetString(), out var b) && b)
+                : null;
 
             return RunOnUi(() => name switch
             {
                 "get_state" => _main.AiGetStateJson(),
                 "list_boards" => _main.AiGetStateJson(),
+                "list_notes" => _main.AiListNotes(Text("board_id")),
                 "list_schedule" => _main.AiListSchedule(),
                 "create_board" => _main.AiCreateBoard(Text("title"), Text("color")),
                 "create_note" => _main.AiCreateNote(Text("content"), Text("board_id"), Flag("markdown", true)),
+                "update_note" => _main.AiUpdateNote(Text("note_id"), Text("content"), OptionalFlag("markdown"), Text("board_id")),
                 "open_board" => _main.AiOpenBoard(Text("board_id")),
                 _ => JsonSerializer.Serialize(new { ok = false, error = $"未知工具: {name}" })
             });
@@ -102,6 +107,22 @@ public sealed class AiToolService
                     ["markdown"] = new { type = "boolean", description = "是否按 Markdown 渲染，默认 true" }
                 },
                 new[] { "content" }),
+            Tool("list_notes",
+                "读取便签全文，用于在修改内容前找到准确的 note_id。可按 board_id/板块标题过滤；多板模式不传时返回所有板块的便签。",
+                new Dictionary<string, object>
+                {
+                    ["board_id"] = new { type = "string", description = "可选，板块 id 或标题" }
+                }),
+            Tool("update_note",
+                "修改一张已有便签的正文（支持 Markdown）。改完后 CoTab 会自动重新识别便签中的时间安排并更新日程提醒。修改日程应通过修改便签正文完成。",
+                new Dictionary<string, object>
+                {
+                    ["note_id"] = new { type = "string", description = "要修改的便签 id，先用 list_notes/get_state 获取" },
+                    ["content"] = new { type = "string", description = "新的便签正文；不要只写时间，保留完整内容" },
+                    ["markdown"] = new { type = "boolean", description = "可选，是否按 Markdown 渲染；省略时保持原设置" },
+                    ["board_id"] = new { type = "string", description = "可选，多板模式下便签所属板块；不确定时可省略，会自动搜索" }
+                },
+                new[] { "note_id", "content" }),
             Tool("open_board",
                 "打开一个子板，让用户直接看到它。",
                 new Dictionary<string, object>

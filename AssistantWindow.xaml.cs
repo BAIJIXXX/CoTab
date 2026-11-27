@@ -252,7 +252,7 @@ public partial class AssistantWindow : Window
         _shownWelcome = true;
         if (_history.Count > 0) return;
         AddMessage("assistant",
-            "我是 CoTab 的 AI 助手。可以让我帮你整理便签、按分类创建板块，或者从便签里识别日程。\n\n默认静默，只在你提问时工作。", false);
+            "我是 CoTab 的 AI 助手。可以让我帮你整理便签、按分类创建板块，或者修改便签里的时间安排并同步日程。\n\n默认静默，只在你提问时工作。", false);
     }
 
     private void BuildChips()
@@ -262,6 +262,7 @@ public partial class AssistantWindow : Window
         AddChip("创建板块", "请根据我现有的便签，建议并创建几个合适的分类板块。");
         AddChip("今日规划", "根据我的日程和便签，帮我规划今天剩下的时间。");
         AddChip("检查冲突", "检查我的日程是否存在时间冲突，并给出调整建议。");
+        AddChip("改便签日程", "请先列出我有日程的便签和当前识别出的时间；我想修改便签里的时间安排，等我确认具体便签后再用 update_note 改写。");
     }
 
     private void AddChip(string label, string prompt)
@@ -394,11 +395,11 @@ public partial class AssistantWindow : Window
         {
             builder.AppendLine("现有板块：");
             builder.AppendLine(boardLines.Any() ? string.Join("\n", boardLines) : "- 暂无板块");
-            builder.AppendLine("你可以调用 create_board 创建板块，调用 create_note 在指定 board_id 或当前板块创建便签。");
+            builder.AppendLine("你可以调用 create_board 创建板块，调用 create_note 在指定 board_id 或当前板块创建便签，调用 update_note 修改已有便签。");
         }
         else
         {
-            builder.AppendLine("极简模式没有子板，仅可使用 create_note 创建便签。");
+            builder.AppendLine("极简模式没有子板，可使用 create_note 创建便签、update_note 修改便签。");
         }
 
         if (scheduleLines.Any())
@@ -407,7 +408,7 @@ public partial class AssistantWindow : Window
             builder.AppendLine(string.Join("\n", scheduleLines));
         }
 
-        builder.AppendLine("工具使用规则：创建板块或便签前先调用 get_state；用户没有明确要求修改时不要调用写工具；一次最多执行 4 轮工具。");
+        builder.AppendLine("工具使用规则：创建板块或便签前先调用 get_state；修改便签或日程前先调用 list_notes 找到 note_id，再用 update_note 改写完整正文；用户没有明确要求修改时不要调用写工具；一次最多执行 4 轮工具。");
         builder.AppendLine("回答用简体中文，简短、直接。不要声称自己能做到工具之外的事情。");
         if (!string.IsNullOrWhiteSpace(s.AiSystemPrompt))
         {
@@ -423,7 +424,9 @@ public partial class AssistantWindow : Window
         {
             "create_board" => "已创建板块",
             "create_note" => "已创建便签",
+            "update_note" => "已修改便签",
             "open_board" => "已打开板块",
+            "list_notes" => "已读取便签内容",
             "list_schedule" => "已读取日程",
             "get_state" or "list_boards" => "已读取便签状态",
             _ => "工具调用完成"

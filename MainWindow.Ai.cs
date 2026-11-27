@@ -464,6 +464,120 @@ public partial class MainWindow
         return JsonSerializer.Serialize(new { ok = true, events = payload });
     }
 
+    public string AiListNotes(string? boardId)
+    {
+        if (IsMultiBoard)
+        {
+            IEnumerable<SubBoardModel> boards = _state.Boards;
+            if (!string.IsNullOrWhiteSpace(boardId))
+            {
+                var selected = FindBoard(boardId);
+                if (selected == null) return Error("没有找到这个板块。");
+                boards = new[] { selected };
+            }
+
+            var payload = boards.Select(b => new
+            {
+                id = b.Id,
+                title = b.Title,
+                notes = b.Notes.Select(n => new
+                {
+                    id = n.Id,
+                    text = NotebookText(n.Text),
+                    markdown = n.Markdown
+                })
+            });
+            return JsonSerializer.Serialize(new { ok = true, mode = "multi", boards = payload });
+        }
+
+        var minimal = _state.Notes.Select(n => new
+        {
+            id = n.Id,
+            text = NotebookText(n.Text),
+            markdown = n.Markdown
+        });
+        return JsonSerializer.Serialize(new { ok = true, mode = "minimal", notes = minimal });
+    }
+
+    public string AiUpdateNote(string? noteId, string? content, bool? markdown, string? boardId)
+    {
+        if (string.IsNullOrWhiteSpace(noteId))
+            return Error("请提供要修改的便签 id；先调用 list_notes 获取。");
+        content ??= string.Empty;
+        if (content.Length > 20_000) content = content[..20_000];
+        if (string.IsNullOrWhiteSpace(content))
+            return Error("便签内容不能为空。若要删除便签，请让用户在界面上操作。");
+
+        NoteModel? note = null;
+        SubBoardModel? board = null;
+        if (IsMultiBoard)
+        {
+            if (!string.IsNullOrWhiteSpace(boardId))
+            {
+                board = FindBoard(boardId);
+                if (board == null) return Error("没有找到这个板块。");
+                note = board.Notes.FirstOrDefault(n => string.Equals(n.Id, noteId, StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                foreach (var candidate in _state.Boards)
+                {
+                    note = candidate.Notes.FirstOrDefault(n => string.Equals(n.Id, noteId, StringComparison.OrdinalIgnoreCase));
+                    if (note != null) { board = candidate; break; }
+                }
+            }
+        }
+        else
+        {
+            note = _state.Notes.FirstOrDefault(n => string.Equals(n.Id, noteId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (note == null)
+            return Error("没有找到这张便签。请先调用 list_notes 或 get_state 确认 id。");
+
+        note.Text = content.Trim();
+        if (markdown.HasValue) note.Markdown = markdown.Value;
+
+        var displayed = IsMultiBoard
+            ? board != null && ReferenceEquals(board, _activeBoard)
+            : true;
+        if (displayed)
+        {
+            ReloadNotes();
+            AnimateVisibleNotesIn();
+        }
+        UpdateBoardHeader();
+        UpdateEmptyHint();
+
+        if (AiEnabled && _state.Settings.AiAutoSchedule)
+            _schedule.SyncAll();
+        else
+            _schedule.RemoveForNote(note.Id, out _);
+        QueueSave();
+        _assistantWindow?.RefreshSchedule();
+
+        return JsonSerializer.Serialize(new
+        {
+            ok = true,
+            noteId = note.Id,
+            boardId = board?.Id,
+            boardTitle = board?.Title,
+            mode = IsMultiBoard ? "multi" : "minimal",
+            scheduleCount = _schedule.ForNote(note.Id).Count
+        });
+    }
+
+    private SubBoardModel? FindBoard(string idOrTitle) =>
+        _state.Boards.FirstOrDefault(b =>
+            string.Equals(b.Id, idOrTitle, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(b.Title, idOrTitle, StringComparison.OrdinalIgnoreCase));
+
+    private static string NotebookText(string? text)
+    {
+        var value = text ?? string.Empty;
+        return value.Length > 4000 ? value[..4000] + "…" : value;
+    }
+
     private static string Error(string message) => JsonSerializer.Serialize(new { ok = false, error = message });
 
     private static string Snippet(string? text)
