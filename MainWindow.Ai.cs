@@ -168,12 +168,11 @@ public partial class MainWindow
             ? new Thickness(0, 16, 2, 16)
             : new Thickness(2, 16, 0, 16);
         AiPageFront.CornerRadius = onRight
-            ? new CornerRadius(0, 5, 5, 0)
-            : new CornerRadius(5, 0, 0, 5);
-        AiPageAccent.HorizontalAlignment = onRight ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-        AiPageAccent.Margin = onRight
-            ? new Thickness(0, 16, 3, 0)
-            : new Thickness(3, 16, 0, 0);
+            ? new CornerRadius(4, 5, 5, 4)
+            : new CornerRadius(5, 4, 4, 5);
+        AiPageAccent.HorizontalAlignment = HorizontalAlignment.Center;
+        AiPageAccent.VerticalAlignment = VerticalAlignment.Center;
+        AiPageAccent.Margin = new Thickness(0);
 
         AiPageFront.Background = ColorUtil.Brush(ColorUtil.WithAlpha(panel, opacity));
         AiPageFront.BorderBrush = ColorUtil.Brush(edge);
