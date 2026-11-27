@@ -1742,6 +1742,9 @@ public partial class MainWindow : Window
             CloseExitRadio.IsChecked = settings.CloseAction == CloseAction.Exit;
             AiEnabledSwitch.IsChecked = settings.AiEnabled;
             OpenAssistantButton.IsEnabled = settings.AiEnabled;
+            OpenAssistantButton.Content = "打开 " + (string.IsNullOrWhiteSpace(settings.AiAssistantName)
+                ? "cochubbylung"
+                : settings.AiAssistantName);
             UpdateCloseButtonToolTip();
 
             var hasImage = !string.IsNullOrWhiteSpace(settings.BackgroundImagePath) && File.Exists(settings.BackgroundImagePath);
@@ -1788,6 +1791,16 @@ public partial class MainWindow : Window
     }
 
     private void SettingsDoneButton_Click(object sender, RoutedEventArgs e) => HideSettings();
+
+    private void SettingsCategory_Checked(object sender, RoutedEventArgs e)
+    {
+        if (PersonalizationSettingsPanel == null) return;
+        var index = int.TryParse((sender as FrameworkElement)?.Tag?.ToString(), out var parsed) ? parsed : 0;
+        PersonalizationSettingsPanel.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
+        FunctionSettingsPanel.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
+        DataSettingsPanel.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
+        SettingsScroll.ScrollToTop();
+    }
 
     private void PanelOpacitySlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
@@ -2800,8 +2813,17 @@ public partial class MainWindow : Window
                 ShowSettingsPreview();
                 break;
             case "settings-behavior":
-                _previewSettingsScrollToEnd = true;
                 ShowSettingsPreview();
+                FunctionTab.IsChecked = true;
+                _previewSettingsScrollToEnd = true;
+                break;
+            case "settings-functions":
+                ShowSettingsPreview();
+                FunctionTab.IsChecked = true;
+                break;
+            case "settings-data":
+                ShowSettingsPreview();
+                DataTab.IsChecked = true;
                 break;
             case "confirm":
                 ConfirmOverlay.Visibility = Visibility.Visible;

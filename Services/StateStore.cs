@@ -147,6 +147,7 @@ public static class StateStore
         s.AddColor = NormalizeColor(s.AddColor, "#3B3C42");
         s.NoteFillColor = NormalizeColor(s.NoteFillColor, "#FFF1B8");
         s.NoteFontColor = NormalizeColor(s.NoteFontColor, "#3D382B");
+        s.AiAssistantName = TrimTo(s.AiAssistantName, 32, "cochubbylung");
         s.AiEndpoint = TrimTo(s.AiEndpoint, 500, "https://api.openai.com/v1");
         s.AiApiKey = TrimTo(s.AiApiKey, 500, string.Empty);
         s.AiAccentColor = NormalizeColor(s.AiAccentColor, "#FFD66B");

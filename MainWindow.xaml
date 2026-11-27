@@ -374,6 +374,7 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid Margin="18,14,14,10">
@@ -381,9 +382,21 @@
                             <Button Content="完成" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right"
                                     VerticalAlignment="Center" Click="SettingsDoneButton_Click" />
                         </Grid>
-                        <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                        <UniformGrid Grid.Row="1" Columns="3" Margin="18,0,14,12">
+                            <RadioButton x:Name="PersonalizationTab" Content="个性化" Tag="0" GroupName="SettingsCategory"
+                                         Style="{StaticResource SegmentStyle}" IsChecked="True" Margin="0,0,4,0"
+                                         Checked="SettingsCategory_Checked" />
+                            <RadioButton x:Name="FunctionTab" Content="功能设置" Tag="1" GroupName="SettingsCategory"
+                                         Style="{StaticResource SegmentStyle}" Margin="0,0,4,0"
+                                         Checked="SettingsCategory_Checked" />
+                            <RadioButton x:Name="DataTab" Content="数据" Tag="2" GroupName="SettingsCategory"
+                                         Style="{StaticResource SegmentStyle}" Margin="0"
+                                         Checked="SettingsCategory_Checked" />
+                        </UniformGrid>
+                        <ScrollViewer x:Name="SettingsScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                                       Padding="0,0,4,0">
                             <StackPanel Margin="18,0,14,18">
+                                <StackPanel x:Name="PersonalizationSettingsPanel">
                                 <TextBlock Text="模式" Style="{StaticResource SettingsSectionTitle}" />
                                 <UniformGrid Columns="2" Margin="0,0,0,16">
                                     <RadioButton x:Name="ModeMinimalRadio" Tag="Minimal" GroupName="AppMode"
@@ -463,8 +476,10 @@
                                 <TextBlock Text="便签" Style="{StaticResource SettingsSectionTitle}" />
                                 <TextBlock Text="新便签默认颜色（不影响已有便签）" Style="{StaticResource SettingsCaption}" Margin="0,0,0,7" />
                                 <StackPanel x:Name="NoteColorRowsHost" />
-                                <Border Style="{StaticResource SettingsDivider}" />
+                                </StackPanel>
 
+                                <StackPanel x:Name="FunctionSettingsPanel" Visibility="Collapsed">
+                                <Border Style="{StaticResource SettingsDivider}" />
                                 <TextBlock Text="行为" Style="{StaticResource SettingsSectionTitle}" />
                                 <Grid Height="30">
                                     <TextBlock Text="贴近屏幕边缘时自动收起" Style="{StaticResource SettingsLabel}" />
@@ -512,15 +527,18 @@
                                 </Grid>
                                 <Button x:Name="OpenAssistantButton" Content="打开 AI 助手" Style="{StaticResource SettingsSecondaryButton}"
                                         HorizontalAlignment="Left" Margin="0,4,0,0" Click="OpenAssistantButton_Click" />
-                                <TextBlock Text="API Key、模型、主题色和提示词在 AI 窗口的“设置”页配置。AI 默认静默，只在你提问时工作。"
+                                <TextBlock Text="API Key、模型、名称、主题色和提示词在 AI 窗口的“设置”页配置。AI 默认静默，只在你提问时工作。"
                                            Style="{StaticResource SettingsCaption}" TextWrapping="Wrap" Margin="0,7,0,0" />
-                                <Border Style="{StaticResource SettingsDivider}" />
+                                </StackPanel>
 
+                                <StackPanel x:Name="DataSettingsPanel" Visibility="Collapsed">
+                                <Border Style="{StaticResource SettingsDivider}" />
                                 <TextBlock Text="数据" Style="{StaticResource SettingsSectionTitle}" />
                                 <Button Content="打开配置与背景图片文件夹" Style="{StaticResource SettingsSecondaryButton}"
                                         HorizontalAlignment="Left" Click="OpenDataFolderButton_Click" />
                                 <TextBlock x:Name="AboutText" Text="CoTab 1.0 · 轻量桌面便签板" Style="{StaticResource SettingsCaption}"
                                            Margin="0,14,0,0" />
+                                </StackPanel>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>

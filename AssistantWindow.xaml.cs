@@ -70,6 +70,8 @@ public partial class AssistantWindow : Window
     public void ApplyTheme()
     {
         var settings = _state.Settings;
+        AssistantNameText.Text = AssistantName;
+        Title = AssistantName;
         _panelColor = ColorUtil.Parse(settings.PanelColor, Colors.White);
         _accentColor = ColorUtil.Parse(settings.AiAccentColor, Color.FromRgb(255, 214, 107));
 
@@ -321,7 +323,7 @@ public partial class AssistantWindow : Window
         _shownWelcome = true;
         if (_history.Count > 0) return;
         AddMessage("assistant",
-            "我是 CoTab 的 AI 助手。可以让我帮你整理便签、按分类创建板块，或者修改便签里的时间安排并同步日程。\n\n默认静默，只在你提问时工作。", false);
+            $"我是 {AssistantName}。可以让我帮你整理便签、按分类创建板块，或者修改便签里的时间安排并同步日程。\n\n默认静默，只在你提问时工作。", false);
     }
 
     private void BuildChips()
@@ -459,7 +461,7 @@ public partial class AssistantWindow : Window
         var boardLines = _state.Boards.Take(12).Select(b => $"- {b.Title}（{b.Notes.Count} 张便签，id {b.Id}）");
         var scheduleLines = _schedule.All.Take(8).Select(e => $"- {e.StartAt:yyyy-MM-dd HH:mm} {e.Title}");
         var builder = new StringBuilder();
-        builder.AppendLine("你是 CoTab 的桌面便签 AI 助手，运行在一个可选的小窗口中。");
+        builder.AppendLine($"你是 {AssistantName}，CoTab 的桌面便签助手，运行在一个可选的小窗口中。");
         builder.AppendLine($"当前时间：{DateTimeOffset.Now:yyyy-MM-dd HH:mm}（{TimeZoneInfo.Local.DisplayName}）。");
         builder.AppendLine($"当前模式：{(_main.CurrentMode == AppMode.MultiBoard ? "多板模式" : "极简模式")}。");
         if (_main.CurrentMode == AppMode.MultiBoard)
@@ -578,8 +580,18 @@ public partial class AssistantWindow : Window
         _history.RemoveRange(0, _history.Count - 40);
     }
 
+    private string AssistantName
+    {
+        get
+        {
+            var value = _state.Settings.AiAssistantName;
+            return string.IsNullOrWhiteSpace(value) ? "cochubbylung" : value.Trim();
+        }
+    }
+
     private void RefreshSettings()
     {
+        AssistantNameBox.Text = AssistantName;
         EndpointBox.Text = _state.Settings.AiEndpoint;
         ApiKeyBox.Password = _state.Settings.AiApiKey;
         ModelBox.Text = _state.Settings.AiModel;
@@ -595,6 +607,21 @@ public partial class AssistantWindow : Window
         LaterSwatch.Background = new SolidColorBrush(ColorUtil.Parse(_state.Settings.AiScheduleLaterColor, Color.FromRgb(140, 158, 134)));
         SettingsStatusText.Text = HasApiKey() ? "已配置。保存后立即生效。" : "尚未配置 API Key。";
         UpdateStatusCaption();
+    }
+
+    private void AssistantNameBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var raw = AssistantNameBox.Text?.Trim();
+        var name = string.IsNullOrWhiteSpace(raw) ? "cochubbylung" : raw;
+        _state.Settings.AiAssistantName = name;
+        AssistantNameText.Text = name;
+        Title = name;
+    }
+
+    private void AssistantNameBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        RefreshSettings();
+        _main.PersistAiSettings();
     }
 
     private void AccentPicker_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -679,6 +706,9 @@ public partial class AssistantWindow : Window
     private void SaveSettingsFields()
     {
         var s = _state.Settings;
+        s.AiAssistantName = string.IsNullOrWhiteSpace(AssistantNameBox.Text)
+            ? "cochubbylung"
+            : AssistantNameBox.Text.Trim();
         s.AiEndpoint = string.IsNullOrWhiteSpace(EndpointBox.Text) ? "https://api.openai.com/v1" : EndpointBox.Text.Trim();
         s.AiApiKey = ApiKeyBox.Password.Trim();
         s.AiModel = string.IsNullOrWhiteSpace(ModelBox.Text) ? "gpt-4o-mini" : ModelBox.Text.Trim();

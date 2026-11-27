@@ -177,6 +177,7 @@ public partial class MainWindow
         AiPageFront.Background = ColorUtil.Brush(ColorUtil.WithAlpha(panel, opacity));
         AiPageFront.BorderBrush = ColorUtil.Brush(edge);
         AiPageAccent.Background = ColorUtil.Brush(accent);
+        AiPageHint.ToolTip = $"展开 {settings.AiAssistantName}";
     }
 
     public bool ProbeAiPageHintHitAt(Point point)

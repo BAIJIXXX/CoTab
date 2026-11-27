@@ -273,7 +273,8 @@
                 <Grid Grid.Row="0" Margin="12,0,8,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Image x:Name="AvatarImage" Width="24" Height="24" Margin="0,0,8,0" Stretch="Uniform" />
-                        <TextBlock Text="CoChubbyLung" Foreground="{DynamicResource AiTextBrush}" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock x:Name="AssistantNameText" Text="cochubbylung"
+                                   Foreground="{DynamicResource AiTextBrush}" FontSize="12" FontWeight="SemiBold" />
                     </StackPanel>
                     <Button x:Name="CollapseButton" Width="26" Height="26" HorizontalAlignment="Right"
                             Style="{StaticResource IconButtonStyle}" Click="CollapseButton_Click" ToolTip="折叠 AI 窗口">
@@ -341,6 +342,10 @@
 
                     <ScrollViewer x:Name="SettingsView" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="14,2,14,16">
+                            <TextBlock Text="身份" Style="{StaticResource AiSection}" />
+                            <TextBlock Text="助手名称" Style="{StaticResource AiFieldLabel}" />
+                            <TextBox x:Name="AssistantNameBox" Style="{StaticResource AiInput}" MaxLength="32"
+                                     TextChanged="AssistantNameBox_TextChanged" LostFocus="AssistantNameBox_LostFocus" />
                             <TextBlock Text="连接" Style="{StaticResource AiSection}" />
                             <TextBlock Text="API 地址（OpenAI 兼容）" Style="{StaticResource AiFieldLabel}" />
                             <TextBox x:Name="EndpointBox" Style="{StaticResource AiInput}" />
@@ -348,6 +353,7 @@
                             <PasswordBox x:Name="ApiKeyBox" Style="{StaticResource AiPassword}" />
                             <TextBlock Text="模型" Style="{StaticResource AiFieldLabel}" />
                             <TextBox x:Name="ModelBox" Style="{StaticResource AiInput}" />
+                            <TextBlock Text="外观" Style="{StaticResource AiSection}" />
                             <TextBlock Text="主题色" Style="{StaticResource AiFieldLabel}" />
                             <Border x:Name="AccentPicker" Height="34" Background="{DynamicResource AiCardBrush}"
                                     BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1" CornerRadius="6"
