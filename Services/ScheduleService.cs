@@ -32,6 +32,7 @@ public sealed class ScheduleService
             existing.Zip(drafts).All(pair =>
                 pair.First.StartAt == pair.Second.StartAt &&
                 pair.First.Title == pair.Second.Title &&
+                pair.First.HasTime == pair.Second.HasTime &&
                 pair.First.ReminderMinutes == pair.Second.ReminderMinutes &&
                 string.Equals(pair.First.BoardId, boardId, StringComparison.OrdinalIgnoreCase)))
         {
@@ -47,6 +48,7 @@ public sealed class ScheduleService
                 BoardId = boardId,
                 Title = draft.Title,
                 StartAt = draft.StartAt,
+                HasTime = draft.HasTime,
                 ReminderMinutes = draft.ReminderMinutes,
                 Notified = false
             });
@@ -138,7 +140,9 @@ public sealed class ScheduleService
             ? $"{Math.Max(1, (int)delta.TotalMinutes)} 分钟后"
             : delta.TotalHours < 24
                 ? $"{Math.Max(1, (int)delta.TotalHours)} 小时后"
-                : nearest.StartAt.ToString("M月d日 HH:mm");
+                : nearest.HasTime
+                    ? nearest.StartAt.ToString("M月d日 HH:mm")
+                    : $"{nearest.StartAt:M月d日} 全天";
         var lines = new List<string>
         {
             $"我注意到日程有更新：{upcoming.Count} 个待办，最近一项「{Shorten(nearest.Title)}」在 {when}。"
@@ -168,8 +172,36 @@ public sealed class ScheduleService
             : evt.StartAt.Date == now.Date.AddDays(1)
                 ? "明天"
                 : evt.StartAt.ToString("M月d日");
-        return $"{day} {evt.StartAt:HH:mm}";
+        return evt.HasTime ? $"{day} {evt.StartAt:HH:mm}" : $"{day} 全天";
     }
+
+    public static string FormatDate(ScheduleEvent evt)
+    {
+        var now = DateTimeOffset.Now;
+        if (evt.StartAt.Date == now.Date) return "今天";
+        if (evt.StartAt.Date == now.Date.AddDays(1)) return "明天";
+        return evt.StartAt.Year == now.Year
+            ? evt.StartAt.ToString("M月d日")
+            : evt.StartAt.ToString("yyyy/M/d");
+    }
+
+    public static string FormatWeekday(ScheduleEvent evt)
+    {
+        var chinese = evt.StartAt.DayOfWeek switch
+        {
+            DayOfWeek.Monday => "周一",
+            DayOfWeek.Tuesday => "周二",
+            DayOfWeek.Wednesday => "周三",
+            DayOfWeek.Thursday => "周四",
+            DayOfWeek.Friday => "周五",
+            DayOfWeek.Saturday => "周六",
+            _ => "周日"
+        };
+        return chinese;
+    }
+
+    public static string FormatClock(ScheduleEvent evt) =>
+        evt.HasTime ? evt.StartAt.ToString("HH:mm") : "全天";
 
     public static string Format(ScheduleEvent evt) => $"{FormatTime(evt)} · {Shorten(evt.Title)}";
 

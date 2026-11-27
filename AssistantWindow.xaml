@@ -362,6 +362,50 @@
                                     </StackPanel>
                                 </Grid>
                             </Border>
+                            <TextBlock Text="日程紧急色（低饱和）" Style="{StaticResource AiFieldLabel}" />
+                            <Grid Height="36">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="SoonColorPicker" Grid.Column="0" Height="32" Margin="0,0,4,0"
+                                        Background="{DynamicResource AiCardBrush}" BorderBrush="{DynamicResource AiBorderBrush}"
+                                        BorderThickness="1" CornerRadius="6" Cursor="Hand" Tag="soon"
+                                        MouseLeftButtonDown="ScheduleColorPicker_MouseLeftButtonDown"
+                                        ToolTip="3 天内；点击选择颜色">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="7,0">
+                                        <Border x:Name="SoonSwatch" Width="13" Height="13" CornerRadius="4"
+                                                BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1" Background="#B07A7A" />
+                                        <TextBlock Text="3天内" Foreground="{DynamicResource AiMutedBrush}" FontSize="10.5"
+                                                   Margin="5,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="WeekColorPicker" Grid.Column="1" Height="32" Margin="0,0,4,0"
+                                        Background="{DynamicResource AiCardBrush}" BorderBrush="{DynamicResource AiBorderBrush}"
+                                        BorderThickness="1" CornerRadius="6" Cursor="Hand" Tag="week"
+                                        MouseLeftButtonDown="ScheduleColorPicker_MouseLeftButtonDown"
+                                        ToolTip="7 天内；点击选择颜色">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="7,0">
+                                        <Border x:Name="WeekSwatch" Width="13" Height="13" CornerRadius="4"
+                                                BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1" Background="#C2A878" />
+                                        <TextBlock Text="7天内" Foreground="{DynamicResource AiMutedBrush}" FontSize="10.5"
+                                                   Margin="5,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="LaterColorPicker" Grid.Column="2" Height="32"
+                                        Background="{DynamicResource AiCardBrush}" BorderBrush="{DynamicResource AiBorderBrush}"
+                                        BorderThickness="1" CornerRadius="6" Cursor="Hand" Tag="later"
+                                        MouseLeftButtonDown="ScheduleColorPicker_MouseLeftButtonDown"
+                                        ToolTip="7 天以后；点击选择颜色">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="7,0">
+                                        <Border x:Name="LaterSwatch" Width="13" Height="13" CornerRadius="4"
+                                                BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1" Background="#8C9E86" />
+                                        <TextBlock Text="以后" Foreground="{DynamicResource AiMutedBrush}" FontSize="10.5"
+                                                   Margin="5,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
                             <TextBlock Text="系统提示词（可选，会叠加在内置指令之后）" Style="{StaticResource AiFieldLabel}" />
                             <TextBox x:Name="SystemPromptBox" Style="{StaticResource AiInput}" Height="72"
                                      AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />

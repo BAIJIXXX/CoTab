@@ -108,6 +108,7 @@ public partial class AssistantWindow : Window
             ? new SolidColorBrush(Color.FromRgb(123, 216, 143))
             : _mutedBrush;
         UpdateStatusCaption();
+        if (ScheduleListPanel != null) RefreshSchedule();
     }
 
     public void FollowMain()
@@ -214,28 +215,96 @@ public partial class AssistantWindow : Window
                 Background = _cardBrush,
                 BorderBrush = _borderBrush,
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(7),
-                Padding = new Thickness(10, 8, 10, 8),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8),
                 Margin = new Thickness(0, 0, 0, 7)
             };
-            var stack = new StackPanel();
-            stack.Children.Add(new TextBlock
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(94) });
+
+            var bar = new Border
+            {
+                Width = 4,
+                CornerRadius = new CornerRadius(2),
+                Background = new SolidColorBrush(ScheduleUrgencyColor(evt.StartAt)),
+                Margin = new Thickness(0, 1, 8, 1),
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            Grid.SetColumn(bar, 0);
+            grid.Children.Add(bar);
+
+            var eventCell = new StackPanel
+            {
+                Margin = new Thickness(0, 1, 9, 1),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            eventCell.Children.Add(new TextBlock
             {
                 Text = evt.Title,
                 Foreground = _textBrush,
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap
             });
-            stack.Children.Add(new TextBlock
+            eventCell.Children.Add(new TextBlock
             {
-                Text = $"{ScheduleService.FormatTime(evt)} · 提前 {evt.ReminderMinutes} 分钟",
+                Text = $"提前 {evt.ReminderMinutes} 分钟",
                 Foreground = _mutedBrush,
-                FontSize = 10.8,
+                FontSize = 10.2,
                 Margin = new Thickness(0, 4, 0, 0)
             });
-            card.Child = stack;
+            Grid.SetColumn(eventCell, 1);
+            grid.Children.Add(eventCell);
+
+            var timeCell = new Border
+            {
+                Background = _accentBrush,
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(8, 5, 7, 5),
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            var timeStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            timeStack.Children.Add(new TextBlock
+            {
+                Text = ScheduleService.FormatDate(evt),
+                Foreground = new SolidColorBrush(ColorUtil.WithAlpha(_accentTextColor, 0.74)),
+                FontSize = 10,
+                TextWrapping = TextWrapping.NoWrap
+            });
+            timeStack.Children.Add(new TextBlock
+            {
+                Text = $"{ScheduleService.FormatWeekday(evt)} {ScheduleService.FormatClock(evt)}",
+                Foreground = new SolidColorBrush(_accentTextColor),
+                FontSize = evt.HasTime ? 12.5 : 11.5,
+                FontWeight = FontWeights.SemiBold,
+                Margin = new Thickness(0, 2, 0, 0),
+                TextWrapping = TextWrapping.NoWrap
+            });
+            timeCell.Child = timeStack;
+            Grid.SetColumn(timeCell, 2);
+            grid.Children.Add(timeCell);
+
+            card.Child = grid;
             ScheduleListPanel.Children.Add(card);
         }
+    }
+
+    private Color ScheduleUrgencyColor(DateTimeOffset start)
+    {
+        var days = (start.Date - DateTimeOffset.Now.Date).Days;
+        var text = days <= 3
+            ? _state.Settings.AiScheduleSoonColor
+            : days <= 7
+                ? _state.Settings.AiScheduleWeekColor
+                : _state.Settings.AiScheduleLaterColor;
+        var fallback = days <= 3
+            ? Color.FromRgb(176, 122, 122)
+            : days <= 7
+                ? Color.FromRgb(194, 168, 120)
+                : Color.FromRgb(140, 158, 134);
+        return ColorUtil.Parse(text, fallback);
     }
 
     public void AddSuggestion(string text)
@@ -519,6 +588,9 @@ public partial class AssistantWindow : Window
         var accent = ColorUtil.Parse(_state.Settings.AiAccentColor, Color.FromRgb(255, 214, 107));
         AccentSwatch.Background = new SolidColorBrush(accent);
         AccentHexText.Text = ColorUtil.ToHex(accent).ToUpperInvariant();
+        SoonSwatch.Background = new SolidColorBrush(ColorUtil.Parse(_state.Settings.AiScheduleSoonColor, Color.FromRgb(176, 122, 122)));
+        WeekSwatch.Background = new SolidColorBrush(ColorUtil.Parse(_state.Settings.AiScheduleWeekColor, Color.FromRgb(194, 168, 120)));
+        LaterSwatch.Background = new SolidColorBrush(ColorUtil.Parse(_state.Settings.AiScheduleLaterColor, Color.FromRgb(140, 158, 134)));
         SettingsStatusText.Text = HasApiKey() ? "已配置。保存后立即生效。" : "尚未配置 API Key。";
         UpdateStatusCaption();
     }
@@ -535,6 +607,38 @@ public partial class AssistantWindow : Window
         ApplyTheme();
         RefreshSettings();
         SettingsStatusText.Text = "主题色已更新。";
+    }
+
+    private void ScheduleColorPicker_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string tag }) return;
+        var settings = _state.Settings;
+        var currentText = tag switch
+        {
+            "soon" => settings.AiScheduleSoonColor,
+            "week" => settings.AiScheduleWeekColor,
+            _ => settings.AiScheduleLaterColor
+        };
+        var fallback = tag switch
+        {
+            "soon" => Color.FromRgb(176, 122, 122),
+            "week" => Color.FromRgb(194, 168, 120),
+            _ => Color.FromRgb(140, 158, 134)
+        };
+        var picker = new ColorPickerWindow(ColorUtil.Parse(currentText, fallback)) { Owner = this };
+        if (picker.ShowDialog() != true) return;
+
+        var hex = ColorUtil.ToHex(picker.SelectedColor);
+        switch (tag)
+        {
+            case "soon": settings.AiScheduleSoonColor = hex; break;
+            case "week": settings.AiScheduleWeekColor = hex; break;
+            default: settings.AiScheduleLaterColor = hex; break;
+        }
+        _main.PersistAiSettings();
+        RefreshSettings();
+        RefreshSchedule();
+        SettingsStatusText.Text = "日程颜色已更新。";
     }
 
     private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)

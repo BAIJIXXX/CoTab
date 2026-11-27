@@ -63,6 +63,9 @@ public sealed class SettingsModel
     public string AiEndpoint { get; set; } = "https://api.openai.com/v1";
     public string AiApiKey { get; set; } = string.Empty;
     public string AiAccentColor { get; set; } = "#FFD66B";
+    public string AiScheduleSoonColor { get; set; } = "#B07A7A";
+    public string AiScheduleWeekColor { get; set; } = "#C2A878";
+    public string AiScheduleLaterColor { get; set; } = "#8C9E86";
     public string AiModel { get; set; } = "gpt-4o-mini";
     public string AiSystemPrompt { get; set; } = string.Empty;
     public bool AiAutoSchedule { get; set; } = true;
@@ -77,6 +80,7 @@ public sealed class ScheduleEvent
     public string? BoardId { get; set; }
     public string Title { get; set; } = string.Empty;
     public DateTimeOffset StartAt { get; set; }
+    public bool HasTime { get; set; } = true;
     public int ReminderMinutes { get; set; } = 15;
     public bool Notified { get; set; }
     public DateTimeOffset? SnoozeUntil { get; set; }

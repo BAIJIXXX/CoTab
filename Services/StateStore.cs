@@ -150,6 +150,9 @@ public static class StateStore
         s.AiEndpoint = TrimTo(s.AiEndpoint, 500, "https://api.openai.com/v1");
         s.AiApiKey = TrimTo(s.AiApiKey, 500, string.Empty);
         s.AiAccentColor = NormalizeColor(s.AiAccentColor, "#FFD66B");
+        s.AiScheduleSoonColor = NormalizeColor(s.AiScheduleSoonColor, "#B07A7A");
+        s.AiScheduleWeekColor = NormalizeColor(s.AiScheduleWeekColor, "#C2A878");
+        s.AiScheduleLaterColor = NormalizeColor(s.AiScheduleLaterColor, "#8C9E86");
         s.AiModel = TrimTo(s.AiModel, 120, "gpt-4o-mini");
         s.AiSystemPrompt = TrimTo(s.AiSystemPrompt, 4000, string.Empty);
         s.AiReminderMinutes = Math.Clamp(s.AiReminderMinutes, 1, 120);

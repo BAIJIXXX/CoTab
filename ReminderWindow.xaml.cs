@@ -18,7 +18,10 @@ public partial class ReminderWindow : Window
         InitializeComponent();
         _event = scheduleEvent;
         TitleText.Text = scheduleEvent.Title;
-        TimeText.Text = $"{scheduleEvent.StartAt:M月d日 HH:mm} · 提前 {scheduleEvent.ReminderMinutes} 分钟";
+        var when = scheduleEvent.HasTime
+            ? scheduleEvent.StartAt.ToString("M月d日 HH:mm")
+            : $"{scheduleEvent.StartAt:M月d日} 全天";
+        TimeText.Text = $"{when} · 提前 {scheduleEvent.ReminderMinutes} 分钟";
         DetailText.Text = string.IsNullOrWhiteSpace(scheduleEvent.BoardId)
             ? "来自便签板中的日程识别。"
             : "来自分类板块中的日程识别。";

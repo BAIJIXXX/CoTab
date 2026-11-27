@@ -9,7 +9,7 @@ namespace CoTab.Services;
 /// </summary>
 public static class ScheduleExtractor
 {
-    public sealed record Draft(string Title, DateTimeOffset StartAt, int ReminderMinutes);
+    public sealed record Draft(string Title, DateTimeOffset StartAt, int ReminderMinutes, bool HasTime);
 
     private static readonly Regex FullDate = new(
         @"(?<!\d)(?<y>\d{4})\s*[-/.年]\s*(?<m>\d{1,2})\s*[-/.月]\s*(?<d>\d{1,2})\s*[日号]?",
@@ -86,7 +86,7 @@ public static class ScheduleExtractor
             if (title.Length == 0) title = "日程";
 
             if (drafts.Any(d => d.StartAt == start.Value && d.Title == title)) continue;
-            drafts.Add(new Draft(title, start.Value, reminder));
+            drafts.Add(new Draft(title, start.Value, reminder, time is not null));
         }
 
         return drafts.OrderBy(d => d.StartAt).Take(12).ToList();
