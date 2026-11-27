@@ -26,6 +26,20 @@ public partial class AssistantWindow : Window
     private bool _suppressTab;
     private bool _shownWelcome;
 
+    private Color _panelColor = Colors.White;
+    private Color _textColor = Color.FromRgb(36, 37, 42);
+    private Color _mutedColor = Color.FromRgb(109, 116, 128);
+    private Color _cardColor = Color.FromArgb(14, 0, 0, 0);
+    private Color _borderColor = Color.FromArgb(34, 0, 0, 0);
+    private Color _accentColor = Color.FromRgb(255, 214, 107);
+    private Color _accentTextColor = Color.FromRgb(36, 37, 42);
+    private Color _codeFillColor = Color.FromRgb(238, 238, 238);
+    private SolidColorBrush _textBrush = new(Color.FromRgb(36, 37, 42));
+    private SolidColorBrush _mutedBrush = new(Color.FromRgb(109, 116, 128));
+    private SolidColorBrush _cardBrush = new(Color.FromArgb(14, 0, 0, 0));
+    private SolidColorBrush _borderBrush = new(Color.FromArgb(34, 0, 0, 0));
+    private SolidColorBrush _accentBrush = new(Color.FromRgb(255, 214, 107));
+
     public AssistantWindow(AppState state, ScheduleService schedule, MainWindow main)
     {
         InitializeComponent();
@@ -50,15 +64,47 @@ public partial class AssistantWindow : Window
     public void ApplyTheme()
     {
         var settings = _state.Settings;
-        var panel = ColorUtil.Parse(settings.PanelColor, Colors.White);
-        var shell = ColorUtil.Blend(panel, Color.FromRgb(18, 19, 23), 0.90);
-        ShellBorder.Background = new SolidColorBrush(Color.FromArgb(250, shell.R, shell.G, shell.B));
-        ShellBorder.BorderBrush = new SolidColorBrush(Color.FromArgb(34, 255, 255, 255));
-        CollapsedTab.Background = new SolidColorBrush(Color.FromArgb(248, shell.R, shell.G, shell.B));
-        CollapsedTab.BorderBrush = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+        _panelColor = ColorUtil.Parse(settings.PanelColor, Colors.White);
+        _accentColor = ColorUtil.Parse(settings.AiAccentColor, Color.FromRgb(255, 214, 107));
+
+        var dark = ColorUtil.Luminance(_panelColor) < 0.46;
+        _textColor = dark ? Color.FromRgb(244, 245, 248) : Color.FromRgb(36, 37, 42);
+        _mutedColor = dark ? Color.FromRgb(157, 164, 176) : Color.FromRgb(104, 111, 124);
+        _cardColor = dark ? Color.FromArgb(28, 255, 255, 255) : Color.FromArgb(13, 0, 0, 0);
+        _borderColor = dark ? Color.FromArgb(44, 255, 255, 255) : Color.FromArgb(32, 0, 0, 0);
+        _accentTextColor = ColorUtil.Luminance(_accentColor) > 0.55
+            ? Color.FromRgb(32, 33, 38)
+            : Colors.White;
+        _codeFillColor = ColorUtil.Blend(_panelColor, _textColor, 0.09);
+
+        var shell = ColorUtil.WithAlpha(_panelColor, Math.Clamp(settings.PanelOpacity, 0.74, 0.97));
+        var hover = dark ? Color.FromArgb(30, 255, 255, 255) : Color.FromArgb(18, 0, 0, 0);
+        var segment = dark ? Color.FromArgb(18, 255, 255, 255) : Color.FromArgb(10, 0, 0, 0);
+        var thumb = dark ? Color.FromArgb(84, 255, 255, 255) : Color.FromArgb(54, 0, 0, 0);
+        var thumbHover = dark ? Color.FromArgb(118, 255, 255, 255) : Color.FromArgb(82, 0, 0, 0);
+
+        Resources["AiShellBrush"] = new SolidColorBrush(shell);
+        Resources["AiTextBrush"] = _textBrush = new SolidColorBrush(_textColor);
+        Resources["AiMutedBrush"] = _mutedBrush = new SolidColorBrush(_mutedColor);
+        Resources["AiCardBrush"] = _cardBrush = new SolidColorBrush(_cardColor);
+        Resources["AiBorderBrush"] = _borderBrush = new SolidColorBrush(_borderColor);
+        Resources["AiHoverBrush"] = new SolidColorBrush(hover);
+        Resources["AiSegmentBrush"] = new SolidColorBrush(segment);
+        Resources["AiAccentBrush"] = _accentBrush = new SolidColorBrush(_accentColor);
+        Resources["AiAccentTextBrush"] = new SolidColorBrush(_accentTextColor);
+        Resources["AiScrollThumbBrush"] = new SolidColorBrush(thumb);
+        Resources["AiScrollThumbHoverBrush"] = new SolidColorBrush(thumbHover);
+        Resources["AccentBrush"] = new SolidColorBrush(_accentColor);
+        Resources["IconHoverBrush"] = new SolidColorBrush(hover);
+        Resources["IconPressedBrush"] = new SolidColorBrush(dark
+            ? Color.FromArgb(44, 255, 255, 255)
+            : Color.FromArgb(28, 0, 0, 0));
+
+        AccentSwatch.Background = _accentBrush;
+        AccentHexText.Text = ColorUtil.ToHex(_accentColor).ToUpperInvariant();
         StatusDot.Fill = HasApiKey()
             ? new SolidColorBrush(Color.FromRgb(123, 216, 143))
-            : new SolidColorBrush(Color.FromRgb(139, 144, 154));
+            : _mutedBrush;
         UpdateStatusCaption();
     }
 
@@ -73,20 +119,32 @@ public partial class AssistantWindow : Window
         var work = ScreenUtil.GetWorkAreaDip(_main);
         var collapsed = _state.Settings.AiCollapsed;
         var width = collapsed ? CollapsedWidth : ExpandedWidth;
-        var height = collapsed ? CollapsedHeight : Math.Clamp(_main.Height, 320, Math.Max(320, work.Height - 16));
+
+        // The main panel is inset 16 DIP inside its window; align the assistant
+        // shell to the visible panel, not to the transparent shadow margin.
+        const double panelInset = 16;
+        const double shellMargin = 10;
+        const double panelGap = 4;
+
+        var panelTop = _main.Top + panelInset;
+        var panelHeight = Math.Max(320, _main.Height - panelInset * 2);
+        var height = collapsed
+            ? CollapsedHeight
+            : Math.Clamp(panelHeight + shellMargin * 2, 320, Math.Max(320, work.Height - 8));
 
         if (Math.Abs(Width - width) > 0.1) Width = width;
         if (Math.Abs(Height - height) > 0.1) Height = height;
 
-        const double gap = 8;
-        var left = _main.Left + _main.Width + gap;
+        var panelLeft = _main.Left + panelInset;
+        var panelRight = _main.Left + _main.Width - panelInset;
+        var left = panelRight + panelGap - shellMargin;
         if (left + width > work.Right - 4)
-            left = _main.Left - gap - width;
+            left = panelLeft - panelGap - width + shellMargin;
         left = Math.Clamp(left, work.Left + 4, Math.Max(work.Left + 4, work.Right - width - 4));
 
         var top = collapsed
-            ? _main.Top + _main.Height / 2 - height / 2
-            : _main.Top;
+            ? panelTop + panelHeight / 2 - height / 2
+            : panelTop - shellMargin;
         top = Math.Clamp(top, work.Top + 4, Math.Max(work.Top + 4, work.Bottom - height - 4));
 
         Left = left;
@@ -132,7 +190,7 @@ public partial class AssistantWindow : Window
             ScheduleListPanel.Children.Add(new TextBlock
             {
                 Text = "还没有识别到日程。\n在便签里写「明天 14:30 开会」这样的内容试试。",
-                Foreground = Brush("#7F8692"),
+                Foreground = _mutedBrush,
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 18, 0, 0)
@@ -144,8 +202,8 @@ public partial class AssistantWindow : Window
         {
             var card = new Border
             {
-                Background = Brush("#10FFFFFF"),
-                BorderBrush = Brush("#18FFFFFF"),
+                Background = _cardBrush,
+                BorderBrush = _borderBrush,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(7),
                 Padding = new Thickness(10, 8, 10, 8),
@@ -155,14 +213,14 @@ public partial class AssistantWindow : Window
             stack.Children.Add(new TextBlock
             {
                 Text = evt.Title,
-                Foreground = Brush("#F1F2F5"),
+                Foreground = _textBrush,
                 FontSize = 12,
                 TextWrapping = TextWrapping.Wrap
             });
             stack.Children.Add(new TextBlock
             {
                 Text = $"{ScheduleService.FormatTime(evt)} · 提前 {evt.ReminderMinutes} 分钟",
-                Foreground = Brush("#8E96A2"),
+                Foreground = _mutedBrush,
                 FontSize = 10.8,
                 Margin = new Thickness(0, 4, 0, 0)
             });
@@ -176,7 +234,7 @@ public partial class AssistantWindow : Window
         if (string.IsNullOrWhiteSpace(text)) return;
         AddMessage("suggestion", text);
         _history.Add(AiClient.Message.Assistant(text));
-        if (!IsVisible) StatusDot.Fill = Brush("#FFD66B");
+        if (!IsVisible) StatusDot.Fill = _accentBrush;
     }
 
     private void ShowWelcome()
@@ -377,19 +435,20 @@ public partial class AssistantWindow : Window
             CornerRadius = new CornerRadius(8),
             Padding = isTool ? new Thickness(8, 4, 8, 4) : new Thickness(10, 8, 10, 8),
             Margin = new Thickness(0, 0, 0, 7),
-            Background = isUser ? Brush("#FFD66B")
-                : isSuggestion ? Brush("#16FFD66B")
-                : isTool ? Brush("#0CFFFFFF")
-                : Brush("#18FFFFFF"),
-            BorderBrush = isSuggestion ? Brush("#55FFD66B") : Brush("#12FFFFFF"),
+            Background = isUser ? _accentBrush
+                : isSuggestion ? new SolidColorBrush(ColorUtil.WithAlpha(_accentColor, 0.16))
+                : isTool ? new SolidColorBrush(ColorUtil.WithAlpha(_mutedColor, 0.12))
+                : _cardBrush,
+            BorderBrush = isSuggestion
+                ? new SolidColorBrush(ColorUtil.WithAlpha(_accentColor, 0.44))
+                : _borderBrush,
             BorderThickness = new Thickness(1)
         };
 
         UIElement content;
         if (markdown && !isUser && !isTool)
         {
-            content = MarkdownRenderer.Build(text, isSuggestion ? Color.FromRgb(255, 224, 150) : Color.FromRgb(241, 242, 245),
-                isSuggestion ? Color.FromRgb(43, 37, 24) : Color.FromRgb(28, 29, 34), 12, FontFamily);
+            content = MarkdownRenderer.Build(text, _textColor, _codeFillColor, 12, FontFamily);
         }
         else
         {
@@ -398,10 +457,9 @@ public partial class AssistantWindow : Window
                 Text = text,
                 TextWrapping = TextWrapping.Wrap,
                 FontSize = isTool ? 10.8 : 12,
-                Foreground = isUser ? Brush("#322B18")
-                    : isTool ? Brush("#7F8692")
-                    : isSuggestion ? Brush("#FFE096")
-                    : Brush("#F1F2F5")
+                Foreground = isUser ? new SolidColorBrush(_accentTextColor)
+                    : isTool ? _mutedBrush
+                    : _textBrush
             };
         }
 
@@ -412,7 +470,7 @@ public partial class AssistantWindow : Window
             var tag = new TextBlock
             {
                 Text = "建议 · 静默生成",
-                Foreground = Brush("#7F8692"),
+                Foreground = _mutedBrush,
                 FontSize = 9.8,
                 Margin = new Thickness(2, -4, 0, 10)
             };
@@ -446,8 +504,25 @@ public partial class AssistantWindow : Window
         AutoScheduleSwitch.IsChecked = _state.Settings.AiAutoSchedule;
         AutoSuggestionSwitch.IsChecked = _state.Settings.AiAutoSuggestions;
         ReminderBox.Text = _state.Settings.AiReminderMinutes.ToString();
+        var accent = ColorUtil.Parse(_state.Settings.AiAccentColor, Color.FromRgb(255, 214, 107));
+        AccentSwatch.Background = new SolidColorBrush(accent);
+        AccentHexText.Text = ColorUtil.ToHex(accent).ToUpperInvariant();
         SettingsStatusText.Text = HasApiKey() ? "已配置。保存后立即生效。" : "尚未配置 API Key。";
         UpdateStatusCaption();
+    }
+
+    private void AccentPicker_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var picker = new ColorPickerWindow(ColorUtil.Parse(_state.Settings.AiAccentColor, Color.FromRgb(255, 214, 107)))
+        {
+            Owner = this
+        };
+        if (picker.ShowDialog() != true) return;
+        _state.Settings.AiAccentColor = ColorUtil.ToHex(picker.SelectedColor);
+        _main.PersistAiSettings();
+        ApplyTheme();
+        RefreshSettings();
+        SettingsStatusText.Text = "主题色已更新。";
     }
 
     private void SaveSettingsButton_Click(object sender, RoutedEventArgs e)

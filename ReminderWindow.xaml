@@ -9,18 +9,18 @@
         FontFamily="Microsoft YaHei UI" UseLayoutRounding="True" SnapsToDevicePixels="True"
         Loaded="Window_Loaded">
     <Grid Margin="10">
-        <Border CornerRadius="10" Background="#FA18191D" BorderBrush="#33FFD66B" BorderThickness="1">
+        <Border x:Name="ShellBorder" CornerRadius="10" Background="#FA18191D" BorderBrush="#33FFD66B" BorderThickness="1">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="24" ShadowDepth="4" Opacity="0.5" Color="#000000" />
             </Border.Effect>
             <StackPanel Margin="16,14,16,14">
                 <StackPanel Orientation="Horizontal">
-                    <Border Width="24" Height="24" CornerRadius="12" Background="#26FFD66B" Margin="0,0,8,0">
-                        <TextBlock Text="!" Foreground="#FFD66B" FontSize="13" FontWeight="Bold"
+                    <Border x:Name="BadgeBorder" Width="24" Height="24" CornerRadius="12" Background="#26FFD66B" Margin="0,0,8,0">
+                        <TextBlock x:Name="BadgeText" Text="!" Foreground="#FFD66B" FontSize="13" FontWeight="Bold"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="日程提醒" Foreground="#F3F4F7" FontSize="12.5" FontWeight="SemiBold" />
+                        <TextBlock x:Name="HeaderText" Text="日程提醒" Foreground="#F3F4F7" FontSize="12.5" FontWeight="SemiBold" />
                         <TextBlock x:Name="TimeText" Foreground="#8E96A2" FontSize="10.8" Margin="0,2,0,0" />
                     </StackPanel>
                 </StackPanel>
@@ -28,9 +28,9 @@
                            TextWrapping="Wrap" Margin="0,14,0,4" />
                 <TextBlock x:Name="DetailText" Foreground="#9CA3AF" FontSize="11" TextWrapping="Wrap" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-                    <Button Content="稍后 10 分钟" Width="104" Height="28" Style="{StaticResource SettingsSecondaryButton}"
+                    <Button x:Name="SnoozeButton" Content="稍后 10 分钟" Width="104" Height="28" Style="{StaticResource SettingsSecondaryButton}"
                             Click="SnoozeButton_Click" />
-                    <Button Content="知道了" Width="76" Height="28" Style="{StaticResource AccentButtonStyle}"
+                    <Button x:Name="DismissButton" Content="知道了" Width="76" Height="28" Style="{StaticResource AccentButtonStyle}"
                             Margin="8,0,0,0" Click="DismissButton_Click" />
                 </StackPanel>
             </StackPanel>

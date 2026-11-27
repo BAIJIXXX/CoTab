@@ -149,6 +149,7 @@ public static class StateStore
         s.NoteFontColor = NormalizeColor(s.NoteFontColor, "#3D382B");
         s.AiEndpoint = TrimTo(s.AiEndpoint, 500, "https://api.openai.com/v1");
         s.AiApiKey = TrimTo(s.AiApiKey, 500, string.Empty);
+        s.AiAccentColor = NormalizeColor(s.AiAccentColor, "#FFD66B");
         s.AiModel = TrimTo(s.AiModel, 120, "gpt-4o-mini");
         s.AiSystemPrompt = TrimTo(s.AiSystemPrompt, 4000, string.Empty);
         s.AiReminderMinutes = Math.Clamp(s.AiReminderMinutes, 1, 120);

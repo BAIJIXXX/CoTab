@@ -190,7 +190,7 @@ public partial class MainWindow
 
     private void ShowReminder(ScheduleEvent scheduleEvent)
     {
-        var reminder = new ReminderWindow(scheduleEvent);
+        var reminder = new ReminderWindow(scheduleEvent, _state.Settings);
         _reminderWindow = reminder;
         reminder.Snoozed += (_, _) =>
         {

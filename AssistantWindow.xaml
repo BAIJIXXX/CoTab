@@ -9,16 +9,31 @@
         FontFamily="Microsoft YaHei UI" UseLayoutRounding="True" SnapsToDevicePixels="True"
         Loaded="Window_Loaded">
     <Window.Resources>
+        <SolidColorBrush x:Key="AiShellBrush" Color="#FAF7F7F8" />
+        <SolidColorBrush x:Key="AiTextBrush" Color="#24252A" />
+        <SolidColorBrush x:Key="AiMutedBrush" Color="#6D7480" />
+        <SolidColorBrush x:Key="AiCardBrush" Color="#0F000000" />
+        <SolidColorBrush x:Key="AiBorderBrush" Color="#1F000000" />
+        <SolidColorBrush x:Key="AiHoverBrush" Color="#14000000" />
+        <SolidColorBrush x:Key="AiSegmentBrush" Color="#0B000000" />
+        <SolidColorBrush x:Key="AiAccentBrush" Color="#FFD66B" />
+        <SolidColorBrush x:Key="AiAccentTextBrush" Color="#24252A" />
+        <SolidColorBrush x:Key="AiScrollThumbBrush" Color="#36000000" />
+        <SolidColorBrush x:Key="AiScrollThumbHoverBrush" Color="#52000000" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FFD66B" />
+        <SolidColorBrush x:Key="IconHoverBrush" Color="#14000000" />
+        <SolidColorBrush x:Key="IconPressedBrush" Color="#24000000" />
+
         <Style x:Key="AiThumb" TargetType="{x:Type Thumb}">
             <Setter Property="OverridesDefaultStyle" Value="True" />
             <Setter Property="IsTabStop" Value="False" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Border x:Name="ThumbBg" Background="#55FFFFFF" CornerRadius="3" Margin="1" />
+                        <Border x:Name="ThumbBg" Background="{DynamicResource AiScrollThumbBrush}" CornerRadius="3" Margin="1" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbBg" Property="Background" Value="#7AFFFFFF" />
+                                <Setter TargetName="ThumbBg" Property="Background" Value="{DynamicResource AiScrollThumbHoverBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -50,14 +65,14 @@
         </Style>
         <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource AiScrollBar}" />
         <Style x:Key="AiInput" TargetType="TextBox">
-            <Setter Property="Background" Value="#12FFFFFF" />
-            <Setter Property="Foreground" Value="#F2F3F6" />
-            <Setter Property="BorderBrush" Value="#24FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource AiCardBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AiTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AiBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="CaretBrush" Value="#FFD66B" />
-            <Setter Property="SelectionBrush" Value="#66FFD66B" />
+            <Setter Property="CaretBrush" Value="{DynamicResource AiAccentBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AiAccentBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
@@ -70,13 +85,13 @@
             </Setter>
         </Style>
         <Style x:Key="AiPassword" TargetType="PasswordBox">
-            <Setter Property="Background" Value="#12FFFFFF" />
-            <Setter Property="Foreground" Value="#F2F3F6" />
-            <Setter Property="BorderBrush" Value="#24FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource AiCardBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource AiTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AiBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="8,6" />
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="CaretBrush" Value="#FFD66B" />
+            <Setter Property="CaretBrush" Value="{DynamicResource AiAccentBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="PasswordBox">
@@ -89,23 +104,23 @@
             </Setter>
         </Style>
         <Style x:Key="AiFieldLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#B9BEC8" />
+            <Setter Property="Foreground" Value="{DynamicResource AiMutedBrush}" />
             <Setter Property="FontSize" Value="11.5" />
             <Setter Property="Margin" Value="0,8,0,4" />
         </Style>
         <Style x:Key="AiCaption" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#7F8692" />
+            <Setter Property="Foreground" Value="{DynamicResource AiMutedBrush}" />
             <Setter Property="FontSize" Value="10.8" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="AiSection" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#F2F3F6" />
+            <Setter Property="Foreground" Value="{DynamicResource AiTextBrush}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Margin" Value="0,12,0,2" />
         </Style>
         <Style x:Key="AiChip" TargetType="Button">
-            <Setter Property="Foreground" Value="#C7CCD6" />
+            <Setter Property="Foreground" Value="{DynamicResource AiTextBrush}" />
             <Setter Property="FontSize" Value="10.8" />
             <Setter Property="Padding" Value="8,4" />
             <Setter Property="Margin" Value="0,0,6,6" />
@@ -114,13 +129,43 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" BorderBrush="#22FFFFFF" BorderThickness="1"
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1"
                                 CornerRadius="10" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#14FFFFFF" />
+                                <Setter Property="Background" Value="{DynamicResource AiHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SegmentStyle" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{DynamicResource AiMutedBrush}" />
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI, Segoe UI" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Margin" Value="0,0,5,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bg" Background="{DynamicResource AiSegmentBrush}" CornerRadius="5" Padding="8,6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource AiHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource AiAccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource AiAccentTextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -132,10 +177,92 @@
             <Setter Property="Padding" Value="0,6" />
             <Setter Property="Margin" Value="2,0" />
         </Style>
+        <Style x:Key="AccentButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="27" />
+            <Setter Property="Padding" Value="14,0" />
+            <Setter Property="Foreground" Value="{DynamicResource AiAccentTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource AiAccentBrush}" />
+            <Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.88" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bg" Property="Opacity" Value="0.78" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SettingsSecondaryButton" TargetType="Button">
+            <Setter Property="Height" Value="27" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Foreground" Value="{DynamicResource AiTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource AiCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AiBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource AiHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="SwitchStyle" TargetType="CheckBox">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="21" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="Track" Background="{DynamicResource AiSegmentBrush}" CornerRadius="10.5">
+                            <Ellipse x:Name="Knob" Width="15" Height="15" Fill="{DynamicResource AiTextBrush}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource AiAccentBrush}" />
+                                <Setter TargetName="Knob" Property="Fill" Value="{DynamicResource AiAccentTextBrush}" />
+                                <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
+                                <Setter TargetName="Knob" Property="Margin" Value="0,0,3,0" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
-        <Border x:Name="ShellBorder" Margin="10" CornerRadius="10" Background="#FA18191D" BorderBrush="#22FFFFFF" BorderThickness="1">
+        <Border x:Name="ShellBorder" Margin="10" CornerRadius="10" Background="{DynamicResource AiShellBrush}" BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="42" />
@@ -146,11 +273,11 @@
                 <Grid Grid.Row="0" Margin="12,0,8,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#7BD88F" Margin="0,0,7,0" />
-                        <TextBlock Text="AI 助手" Foreground="#F4F5F8" FontSize="12.5" FontWeight="SemiBold" />
+                        <TextBlock Text="AI 助手" Foreground="{DynamicResource AiTextBrush}" FontSize="12.5" FontWeight="SemiBold" />
                     </StackPanel>
                     <Button x:Name="CollapseButton" Width="26" Height="26" HorizontalAlignment="Right"
                             Style="{StaticResource IconButtonStyle}" Click="CollapseButton_Click" ToolTip="折叠 AI 窗口">
-                        <Path Data="M9,4 L14,9 L9,14" Stroke="#AEB4C0" StrokeThickness="1.5"
+                        <Path Data="M9,4 L14,9 L9,14" Stroke="{DynamicResource AiMutedBrush}" StrokeThickness="1.5"
                               StrokeStartLineCap="Round" StrokeEndLineCap="Round" Stretch="Uniform" Width="9" Height="9" />
                     </Button>
                 </Grid>
@@ -175,7 +302,7 @@
                         </ScrollViewer>
                         <StackPanel Grid.Row="1" Margin="12,0,12,12">
                             <WrapPanel x:Name="ChipsPanel" Orientation="Horizontal" />
-                            <Border Background="#14FFFFFF" BorderBrush="#22FFFFFF" BorderThickness="1" CornerRadius="8" Margin="0,2,0,0">
+                            <Border Background="{DynamicResource AiCardBrush}" BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1" CornerRadius="8" Margin="0,2,0,0">
                                 <Grid Margin="6">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
@@ -186,7 +313,7 @@
                                              BorderThickness="0" Background="Transparent" KeyDown="InputBox_KeyDown"
                                              TextChanged="InputBox_TextChanged" />
                                     <TextBlock x:Name="InputPlaceholder" Text="问点什么…  Enter 发送，Shift+Enter 换行"
-                                               Foreground="#737A86" FontSize="11.5" Margin="10,0,0,0"
+                                               Foreground="{DynamicResource AiMutedBrush}" FontSize="11.5" Margin="10,0,0,0"
                                                VerticalAlignment="Center" IsHitTestVisible="False" />
                                     <Button x:Name="SendButton" Grid.Column="1" Content="发送" Width="52" Height="30"
                                             Style="{StaticResource AccentButtonStyle}" Margin="6,0,0,0" Click="SendButton_Click" />
@@ -203,7 +330,7 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid Margin="14,4,12,6">
-                            <TextBlock Text="自动识别的日程" Foreground="#F2F3F6" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text="自动识别的日程" Foreground="{DynamicResource AiTextBrush}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <Button Content="刷新" Width="48" Height="24" HorizontalAlignment="Right"
                                     Style="{StaticResource SettingsSecondaryButton}" Click="RefreshScheduleButton_Click" />
                         </Grid>
@@ -221,26 +348,40 @@
                             <PasswordBox x:Name="ApiKeyBox" Style="{StaticResource AiPassword}" />
                             <TextBlock Text="模型" Style="{StaticResource AiFieldLabel}" />
                             <TextBox x:Name="ModelBox" Style="{StaticResource AiInput}" />
+                            <TextBlock Text="主题色" Style="{StaticResource AiFieldLabel}" />
+                            <Border x:Name="AccentPicker" Height="34" Background="{DynamicResource AiCardBrush}"
+                                    BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1" CornerRadius="6"
+                                    Cursor="Hand" MouseLeftButtonDown="AccentPicker_MouseLeftButtonDown" ToolTip="点击选择 AI 主题色">
+                                <Grid Margin="9,0">
+                                    <TextBlock Text="选择 AI 主题色" Foreground="{DynamicResource AiTextBrush}" FontSize="11.5" VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Border x:Name="AccentSwatch" Width="16" Height="16" CornerRadius="4"
+                                                Background="#FFD66B" BorderBrush="{DynamicResource AiBorderBrush}" BorderThickness="1" />
+                                        <TextBlock x:Name="AccentHexText" Text="#FFD66B" Foreground="{DynamicResource AiMutedBrush}"
+                                                   FontFamily="Consolas" FontSize="10.5" Margin="7,0,0,0" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
                             <TextBlock Text="系统提示词（可选，会叠加在内置指令之后）" Style="{StaticResource AiFieldLabel}" />
                             <TextBox x:Name="SystemPromptBox" Style="{StaticResource AiInput}" Height="72"
                                      AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
 
-                            <Border Height="1" Background="#18FFFFFF" Margin="0,14,0,2" />
+                            <Border Height="1" Background="{DynamicResource AiBorderBrush}" Margin="0,14,0,2" />
                             <TextBlock Text="自动化" Style="{StaticResource AiSection}" />
                             <Grid Height="30">
-                                <TextBlock Text="自动识别便签中的日程" Foreground="#D8DCE4" FontSize="11.5" VerticalAlignment="Center" />
+                                <TextBlock Text="自动识别便签中的日程" Foreground="{DynamicResource AiTextBrush}" FontSize="11.5" VerticalAlignment="Center" />
                                 <CheckBox x:Name="AutoScheduleSwitch" Style="{StaticResource SwitchStyle}"
                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </Grid>
                             <Grid Height="30">
-                                <TextBlock Text="日程变化时在对话中给出建议" Foreground="#D8DCE4" FontSize="11.5" VerticalAlignment="Center" />
+                                <TextBlock Text="日程变化时在对话中给出建议" Foreground="{DynamicResource AiTextBrush}" FontSize="11.5" VerticalAlignment="Center" />
                                 <CheckBox x:Name="AutoSuggestionSwitch" Style="{StaticResource SwitchStyle}"
                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </Grid>
                             <TextBlock Text="提前提醒" Style="{StaticResource AiFieldLabel}" />
                             <StackPanel Orientation="Horizontal">
                                 <TextBox x:Name="ReminderBox" Style="{StaticResource AiInput}" Width="64" />
-                                <TextBlock Text="分钟" Foreground="#8F96A2" FontSize="11.5" VerticalAlignment="Center" Margin="7,0,0,0" />
+                                <TextBlock Text="分钟" Foreground="{DynamicResource AiMutedBrush}" FontSize="11.5" VerticalAlignment="Center" Margin="7,0,0,0" />
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
@@ -258,11 +399,11 @@
             </Grid>
         </Border>
 
-        <Border x:Name="CollapsedTab" Margin="10" Visibility="Collapsed" Background="#FA18191D" BorderBrush="#22FFFFFF"
+        <Border x:Name="CollapsedTab" Margin="10" Visibility="Collapsed" Background="{DynamicResource AiShellBrush}" BorderBrush="{DynamicResource AiBorderBrush}"
                 BorderThickness="1" CornerRadius="8" MouseLeftButtonDown="CollapsedTab_MouseLeftButtonDown"
                 Cursor="Hand" ToolTip="展开 AI 助手">
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="AI" Foreground="#FFD66B" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="AI" Foreground="{DynamicResource AiAccentBrush}" FontSize="11" FontWeight="SemiBold" HorizontalAlignment="Center" />
                 <Ellipse Width="5" Height="5" Fill="#7BD88F" Margin="0,8,0,0" HorizontalAlignment="Center" />
             </StackPanel>
         </Border>

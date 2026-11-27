@@ -62,6 +62,7 @@ public sealed class SettingsModel
     public bool AiCollapsed { get; set; }
     public string AiEndpoint { get; set; } = "https://api.openai.com/v1";
     public string AiApiKey { get; set; } = string.Empty;
+    public string AiAccentColor { get; set; } = "#FFD66B";
     public string AiModel { get; set; } = "gpt-4o-mini";
     public string AiSystemPrompt { get; set; } = string.Empty;
     public bool AiAutoSchedule { get; set; } = true;

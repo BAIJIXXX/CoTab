@@ -13,7 +13,7 @@ public partial class ReminderWindow : Window
 
     public event EventHandler? Snoozed;
 
-    public ReminderWindow(ScheduleEvent scheduleEvent)
+    public ReminderWindow(ScheduleEvent scheduleEvent, SettingsModel settings)
     {
         InitializeComponent();
         _event = scheduleEvent;
@@ -23,6 +23,33 @@ public partial class ReminderWindow : Window
             ? "来自便签板中的日程识别。"
             : "来自分类板块中的日程识别。";
         Opacity = 0;
+        ApplyTheme(settings);
+    }
+
+    private void ApplyTheme(SettingsModel settings)
+    {
+        var panel = ColorUtil.Parse(settings.PanelColor);
+        var accent = ColorUtil.Parse(settings.AiAccentColor);
+        var dark = ColorUtil.Luminance(panel) < 0.46;
+        var text = dark ? Color.FromRgb(243, 244, 247) : Color.FromRgb(29, 30, 34);
+        var muted = dark ? Color.FromRgb(156, 163, 175) : Color.FromRgb(104, 108, 118);
+        var accentText = ColorUtil.Luminance(accent) > 0.55
+            ? Color.FromRgb(29, 30, 34)
+            : Colors.White;
+
+        ShellBorder.Background = ColorUtil.Brush(ColorUtil.WithAlpha(panel, 0.97));
+        ShellBorder.BorderBrush = ColorUtil.Brush(ColorUtil.WithAlpha(accent, 0.34));
+        BadgeBorder.Background = ColorUtil.Brush(ColorUtil.WithAlpha(accent, 0.16));
+        BadgeText.Foreground = ColorUtil.Brush(accent);
+        HeaderText.Foreground = ColorUtil.Brush(text);
+        TitleText.Foreground = ColorUtil.Brush(text);
+        TimeText.Foreground = ColorUtil.Brush(muted);
+        DetailText.Foreground = ColorUtil.Brush(ColorUtil.Blend(muted, text, 0.35));
+        SnoozeButton.Background = ColorUtil.Brush(ColorUtil.WithAlpha(panel, 0.45));
+        SnoozeButton.Foreground = ColorUtil.Brush(text);
+        SnoozeButton.BorderBrush = ColorUtil.Brush(ColorUtil.WithAlpha(text, 0.18));
+        DismissButton.Background = ColorUtil.Brush(accent);
+        DismissButton.Foreground = ColorUtil.Brush(accentText);
     }
 
     private void Window_Loaded(object sender, RoutedEventArgs e)

@@ -498,7 +498,7 @@
                                 </Grid>
                                 <Button x:Name="OpenAssistantButton" Content="打开 AI 助手" Style="{StaticResource SettingsSecondaryButton}"
                                         HorizontalAlignment="Left" Margin="0,4,0,0" Click="OpenAssistantButton_Click" />
-                                <TextBlock Text="API Key、模型和提示词在 AI 窗口右上角的“设置”页配置。AI 默认静默，只在你提问时工作。"
+                                <TextBlock Text="API Key、模型、主题色和提示词在 AI 窗口的“设置”页配置。AI 默认静默，只在你提问时工作。"
                                            Style="{StaticResource SettingsCaption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                                 <Border Style="{StaticResource SettingsDivider}" />
 
