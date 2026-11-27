@@ -15,29 +15,29 @@
 
     <Window.Resources>
         <Style x:Key="SettingsSectionTitle" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="#8E9099" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsMutedBrush}" />
             <Setter Property="FontSize" Value="10.5" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="Margin" Value="0,0,0,9" />
         </Style>
         <Style x:Key="SettingsLabel" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="#E8E8EC" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsTextBrush}" />
             <Setter Property="FontSize" Value="12" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="SettingsCaption" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="#92939B" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsMutedBrush}" />
             <Setter Property="FontSize" Value="10.5" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="SettingsValue" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="#F2F2F5" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsTextBrush}" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style x:Key="SettingsDivider" TargetType="{x:Type Border}">
             <Setter Property="Height" Value="1" />
-            <Setter Property="Background" Value="#1BFFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource SettingsDividerBrush}" />
             <Setter Property="Margin" Value="0,16,0,16" />
         </Style>
         <Style x:Key="SettingsSecondaryButton" TargetType="{x:Type Button}" BasedOn="{StaticResource SettingsButtonStyle}">
@@ -48,17 +48,17 @@
         <Style x:Key="ModeCardStyle" TargetType="{x:Type RadioButton}">
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Foreground" Value="#E8E8EC" />
+            <Setter Property="Foreground" Value="{DynamicResource SettingsTextBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type RadioButton}">
-                        <Border x:Name="Card" CornerRadius="8" Background="#10FFFFFF" BorderBrush="#20FFFFFF"
-                                BorderThickness="1" Padding="8">
+                        <Border x:Name="Card" CornerRadius="8" Background="{DynamicResource SettingsInputBrush}"
+                                BorderBrush="{DynamicResource SettingsBorderBrush}" BorderThickness="1" Padding="8">
                             <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Card" Property="Background" Value="#18FFFFFF" />
+                                <Setter TargetName="Card" Property="Background" Value="{DynamicResource SettingsHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="Card" Property="Background" Value="#14FFD66B" />
@@ -75,10 +75,10 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Border x:Name="ThumbBg" Background="#33000000" CornerRadius="3" Margin="1" />
+                        <Border x:Name="ThumbBg" Background="{DynamicResource SettingsScrollThumbBrush}" CornerRadius="3" Margin="1" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbBg" Property="Background" Value="#55000000" />
+                                <Setter TargetName="ThumbBg" Property="Background" Value="{DynamicResource SettingsScrollThumbHoverBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -141,13 +141,13 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Border x:Name="ThumbBg" Background="#55FFFFFF" CornerRadius="3" Margin="1" />
+                        <Border x:Name="ThumbBg" Background="{DynamicResource SettingsScrollThumbBrush}" CornerRadius="3" Margin="1" />
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ThumbBg" Property="Background" Value="#7AFFFFFF" />
+                                <Setter TargetName="ThumbBg" Property="Background" Value="{DynamicResource SettingsScrollThumbHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsDragging" Value="True">
-                                <Setter TargetName="ThumbBg" Property="Background" Value="#8CFFFFFF" />
+                                <Setter TargetName="ThumbBg" Property="Background" Value="{DynamicResource SettingsScrollThumbHoverBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -366,8 +366,8 @@
                     </Button>
                 </Grid>
 
-                <Border x:Name="SettingsOverlay" CornerRadius="8" Background="#FF18191D" Visibility="Collapsed"
-                        BorderBrush="#18FFFFFF" BorderThickness="1">
+                <Border x:Name="SettingsOverlay" CornerRadius="8" Background="{DynamicResource SettingsOverlayBrush}" Visibility="Collapsed"
+                        BorderBrush="{DynamicResource SettingsBorderBrush}" BorderThickness="1">
                     <Border.Resources>
                         <Style TargetType="{x:Type ScrollBar}" BasedOn="{StaticResource DarkScrollBarStyle}" />
                     </Border.Resources>
@@ -378,7 +378,7 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Grid Margin="18,14,14,10">
-                            <TextBlock Text="设置" Foreground="#F5F5F7" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Text="设置" Foreground="{DynamicResource SettingsTextBrush}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                             <Button Content="完成" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right"
                                     VerticalAlignment="Center" Click="SettingsDoneButton_Click" />
                         </Grid>
@@ -403,7 +403,7 @@
                                                  Style="{StaticResource ModeCardStyle}" Margin="0,0,4,0"
                                                  Checked="AppMode_Checked">
                                         <StackPanel>
-                                            <Border Height="48" CornerRadius="5" Background="#18FFFFFF">
+                                            <Border Height="48" CornerRadius="5" Background="{DynamicResource SettingsInputBrush}">
                                                 <Grid Margin="6">
                                                     <Border Width="38" Height="27" CornerRadius="2" Background="#FFF1B8"
                                                             HorizontalAlignment="Left" VerticalAlignment="Top" />
@@ -413,15 +413,15 @@
                                                              HorizontalAlignment="Right" VerticalAlignment="Bottom" />
                                                 </Grid>
                                             </Border>
-                                            <TextBlock Text="极简模式" FontSize="11.5" Foreground="#F0F0F3" Margin="1,7,0,0" />
-                                            <TextBlock Text="单面板便签" FontSize="10" Foreground="#92939B" Margin="1,2,0,0" />
+                                            <TextBlock Text="极简模式" FontSize="11.5" Foreground="{DynamicResource SettingsTextBrush}" Margin="1,7,0,0" />
+                                            <TextBlock Text="单面板便签" FontSize="10" Foreground="{DynamicResource SettingsMutedBrush}" Margin="1,2,0,0" />
                                         </StackPanel>
                                     </RadioButton>
                                     <RadioButton x:Name="ModeMultiRadio" Tag="MultiBoard" GroupName="AppMode"
                                                  Style="{StaticResource ModeCardStyle}" Margin="4,0,0,0"
                                                  Checked="AppMode_Checked">
                                         <StackPanel>
-                                            <Border Height="48" CornerRadius="5" Background="#18FFFFFF">
+                                            <Border Height="48" CornerRadius="5" Background="{DynamicResource SettingsInputBrush}">
                                                 <UniformGrid Columns="2" Rows="2" Margin="5">
                                                     <Border CornerRadius="2" Background="#E9E3D5" Margin="1.5" />
                                                     <Border CornerRadius="2" Background="#CFE3EE" Margin="1.5" />
@@ -429,8 +429,8 @@
                                                     <Border CornerRadius="2" Background="#FFD66B" Margin="1.5" />
                                                 </UniformGrid>
                                             </Border>
-                                            <TextBlock Text="多板模式" FontSize="11.5" Foreground="#F0F0F3" Margin="1,7,0,0" />
-                                            <TextBlock Text="子板分类" FontSize="10" Foreground="#92939B" Margin="1,2,0,0" />
+                                            <TextBlock Text="多板模式" FontSize="11.5" Foreground="{DynamicResource SettingsTextBrush}" Margin="1,7,0,0" />
+                                            <TextBlock Text="子板分类" FontSize="10" Foreground="{DynamicResource SettingsMutedBrush}" Margin="1,2,0,0" />
                                         </StackPanel>
                                     </RadioButton>
                                 </UniformGrid>
@@ -519,7 +519,7 @@
                                 </Grid>
                                 <Border Style="{StaticResource SettingsDivider}" />
 
-                                <TextBlock Text="AI 助手" Style="{StaticResource SettingsSectionTitle}" />
+                                <TextBlock x:Name="AiSettingsTitle" Text="AI 助手" Style="{StaticResource SettingsSectionTitle}" />
                                 <Grid Height="30">
                                     <TextBlock Text="启用 AI 辅助窗口" Style="{StaticResource SettingsLabel}" />
                                     <CheckBox x:Name="AiEnabledSwitch" Style="{StaticResource SwitchStyle}" HorizontalAlignment="Right"

@@ -483,6 +483,7 @@ public partial class AssistantWindow : Window
 
         builder.AppendLine("工具使用规则：创建板块或便签前先调用 get_state；修改便签或日程前先调用 list_notes 找到 note_id，再用 update_note 改写完整正文；用户没有明确要求修改时不要调用写工具；一次最多执行 4 轮工具。");
         builder.AppendLine("回答用简体中文，简短、直接。不要声称自己能做到工具之外的事情。");
+        builder.AppendLine("说话时每一句话的句末都带上“喵”，保持轻松可爱的语气。");
         if (!string.IsNullOrWhiteSpace(s.AiSystemPrompt))
         {
             builder.AppendLine("用户自定义提示：");
@@ -512,6 +513,9 @@ public partial class AssistantWindow : Window
         var isUser = role == "user";
         var isTool = role == "tool";
         var isSuggestion = role == "suggestion";
+
+        if (!isUser && !isTool)
+            text = Meowify(text);
 
         var bubble = new Border
         {
@@ -563,6 +567,78 @@ public partial class AssistantWindow : Window
         }
 
         Dispatcher.BeginInvoke(new Action(() => ChatScroll.ScrollToEnd()), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// CoChubbyLung speaks with a soft "喵" at the end of each sentence.
+    /// Fenced code blocks and table rows are left untouched.
+    /// </summary>
+    private static string Meowify(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var result = new StringBuilder(text.Length + lines.Length * 2);
+        var inFence = false;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i];
+            var trimmed = line.TrimStart();
+            if (trimmed.StartsWith("```", StringComparison.Ordinal))
+            {
+                inFence = !inFence;
+                result.Append(line);
+            }
+            else if (inFence || string.IsNullOrWhiteSpace(line) || trimmed.StartsWith("|", StringComparison.Ordinal))
+            {
+                result.Append(line);
+            }
+            else
+            {
+                result.Append(MeowifyLine(line));
+            }
+
+            if (i < lines.Length - 1) result.Append('\n');
+        }
+        return result.ToString();
+    }
+
+    private static string MeowifyLine(string line)
+    {
+        var sb = new StringBuilder(line.Length + 2);
+        var inserted = false;
+        for (var i = 0; i < line.Length; i++)
+        {
+            var c = line[i];
+            if (IsSentenceEnd(line, i))
+            {
+                if (sb.Length == 0 || sb[^1] != '喵')
+                {
+                    sb.Append('喵');
+                    inserted = true;
+                }
+                sb.Append(c);
+            }
+            else
+            {
+                sb.Append(c);
+            }
+        }
+
+        if (!inserted && sb.Length > 0 && sb[^1] != '喵')
+            sb.Append('喵');
+        return sb.ToString();
+    }
+
+    private static bool IsSentenceEnd(string text, int index)
+    {
+        var c = text[index];
+        if (c is '。' or '！' or '？' or '；' or '!' or '?' or ';')
+            return true;
+        if (c != '.') return false;
+        var previousIsDigit = index > 0 && char.IsDigit(text[index - 1]);
+        var nextIsBoundary = index + 1 == text.Length || char.IsWhiteSpace(text[index + 1]);
+        return !previousIsDigit && nextIsBoundary;
     }
 
     private void SetBusy(bool busy)

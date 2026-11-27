@@ -114,7 +114,7 @@ public static class PreviewRenderer
                 state.Settings.AddColor = hex;
             }
         }
-        else if (scene.Equals("dark", StringComparison.OrdinalIgnoreCase))
+        else if (scene.StartsWith("dark", StringComparison.OrdinalIgnoreCase))
         {
             state.Settings.PanelColor = "#2C3038";
             state.Settings.PanelOpacity = 0.9;

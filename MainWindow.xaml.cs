@@ -339,6 +339,24 @@ public partial class MainWindow : Window
             app.Resources["PanelBorderBrush"] = new SolidColorBrush(darkPanel
                 ? Color.FromArgb(42, 255, 255, 255)
                 : Color.FromArgb(28, 0, 0, 0));
+
+            var settingsText = darkPanel
+                ? Color.FromRgb(0xF3, 0xF4, 0xF7)
+                : Color.FromRgb(0x22, 0x23, 0x28);
+            var settingsMuted = ColorUtil.Blend(settingsText, panel, darkPanel ? 0.42 : 0.52);
+            var inkBase = darkPanel ? Colors.White : Colors.Black;
+            app.Resources["SettingsOverlayBrush"] = new SolidColorBrush(panel);
+            app.Resources["SettingsCardBrush"] = new SolidColorBrush(ColorUtil.WithAlpha(panel, 0.96));
+            app.Resources["SettingsTextBrush"] = new SolidColorBrush(settingsText);
+            app.Resources["SettingsMutedBrush"] = new SolidColorBrush(settingsMuted);
+            app.Resources["SettingsDividerBrush"] = new SolidColorBrush(ColorUtil.WithAlpha(settingsText, 0.14));
+            app.Resources["SettingsInputBrush"] = new SolidColorBrush(ColorUtil.WithAlpha(inkBase, darkPanel ? 0.08 : 0.055));
+            app.Resources["SettingsBorderBrush"] = new SolidColorBrush(ColorUtil.WithAlpha(settingsText, 0.20));
+            app.Resources["SettingsHoverBrush"] = new SolidColorBrush(ColorUtil.WithAlpha(inkBase, darkPanel ? 0.10 : 0.075));
+            app.Resources["SettingsScrollThumbBrush"] = new SolidColorBrush(ColorUtil.WithAlpha(settingsText, 0.30));
+            app.Resources["SettingsScrollThumbHoverBrush"] = new SolidColorBrush(ColorUtil.WithAlpha(settingsText, 0.52));
+            app.Resources["SettingsSwitchKnobBrush"] = new SolidColorBrush(ColorUtil.Blend(settingsText, panel, 0.12));
+            app.Resources["SettingsSliderThumbBrush"] = new SolidColorBrush(ColorUtil.Blend(settingsText, panel, 0.10));
         }
 
         if (IsMultiBoard)
@@ -1741,10 +1759,12 @@ public partial class MainWindow : Window
             CloseMinimizeRadio.IsChecked = settings.CloseAction == CloseAction.MinimizeToTray;
             CloseExitRadio.IsChecked = settings.CloseAction == CloseAction.Exit;
             AiEnabledSwitch.IsChecked = settings.AiEnabled;
-            OpenAssistantButton.IsEnabled = settings.AiEnabled;
-            OpenAssistantButton.Content = "打开 " + (string.IsNullOrWhiteSpace(settings.AiAssistantName)
+            var assistantName = string.IsNullOrWhiteSpace(settings.AiAssistantName)
                 ? "cochubbylung"
-                : settings.AiAssistantName);
+                : settings.AiAssistantName;
+            OpenAssistantButton.IsEnabled = settings.AiEnabled;
+            OpenAssistantButton.Content = "打开 " + assistantName;
+            AiSettingsTitle.Text = assistantName;
             UpdateCloseButtonToolTip();
 
             var hasImage = !string.IsNullOrWhiteSpace(settings.BackgroundImagePath) && File.Exists(settings.BackgroundImagePath);
@@ -2810,6 +2830,7 @@ public partial class MainWindow : Window
                 break;
             case "settings":
             case "multi-settings":
+            case "dark-settings":
                 ShowSettingsPreview();
                 break;
             case "settings-behavior":

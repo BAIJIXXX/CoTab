@@ -29,11 +29,11 @@ public sealed class ColorRow : ContentControl
         var labelText = new TextBlock
         {
             Text = label,
-            Foreground = new SolidColorBrush(ColorUtil.Parse("#D6D9E0")),
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis
         };
+        labelText.SetResourceReference(TextBlock.ForegroundProperty, "SettingsTextBrush");
         Grid.SetColumn(labelText, 0);
         grid.Children.Add(labelText);
 
@@ -42,27 +42,26 @@ public sealed class ColorRow : ContentControl
             Width = 18,
             Height = 18,
             CornerRadius = new CornerRadius(4),
-            BorderBrush = new SolidColorBrush(ColorUtil.Parse("#33FFFFFF")),
             BorderThickness = new Thickness(1),
             Background = new SolidColorBrush(initial),
             VerticalAlignment = VerticalAlignment.Center
         };
+        _swatch.SetResourceReference(Border.BorderBrushProperty, "SettingsBorderBrush");
 
         _hex = new TextBlock
         {
             Text = ColorUtil.ToHex(initial),
-            Foreground = new SolidColorBrush(ColorUtil.Parse("#8D93A0")),
             FontFamily = new FontFamily("Consolas"),
             FontSize = 10.5,
             Width = 58,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(7, 0, 0, 0)
         };
+        _hex.SetResourceReference(TextBlock.ForegroundProperty, "SettingsMutedBrush");
 
         var pencil = new Path
         {
             Data = Geometry.Parse("M2 11.2 L9.4 3.8 L12.2 6.6 L4.8 14 L1.4 14.4 Z M8.4 4.8 L11.2 7.6"),
-            Stroke = new SolidColorBrush(ColorUtil.Parse("#AEB4C0")),
             StrokeThickness = 1.1,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
@@ -73,6 +72,7 @@ public sealed class ColorRow : ContentControl
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(6, 0, 1, 0)
         };
+        pencil.SetResourceReference(Shape.StrokeProperty, "SettingsMutedBrush");
 
         var content = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         content.Children.Add(_swatch);
@@ -89,7 +89,7 @@ public sealed class ColorRow : ContentControl
             ToolTip = "点击选择颜色"
         };
         _clickable.MouseLeftButtonUp += Clickable_MouseLeftButtonUp;
-        _clickable.MouseEnter += (_, _) => _clickable.Background = new SolidColorBrush(ColorUtil.Parse("#12FFFFFF"));
+        _clickable.MouseEnter += (_, _) => _clickable.SetResourceReference(Border.BackgroundProperty, "SettingsHoverBrush");
         _clickable.MouseLeave += (_, _) => _clickable.Background = Brushes.Transparent;
 
         Grid.SetColumn(_clickable, 1);

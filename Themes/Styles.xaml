@@ -15,6 +15,13 @@
     <SolidColorBrush x:Key="SettingsMutedBrush" Color="#999AA2" />
     <SolidColorBrush x:Key="SettingsDividerBrush" Color="#1FFFFFFF" />
     <SolidColorBrush x:Key="SettingsInputBrush" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="SettingsOverlayBrush" Color="#FF18191D" />
+    <SolidColorBrush x:Key="SettingsBorderBrush" Color="#24FFFFFF" />
+    <SolidColorBrush x:Key="SettingsHoverBrush" Color="#22FFFFFF" />
+    <SolidColorBrush x:Key="SettingsScrollThumbBrush" Color="#55FFFFFF" />
+    <SolidColorBrush x:Key="SettingsScrollThumbHoverBrush" Color="#7AFFFFFF" />
+    <SolidColorBrush x:Key="SettingsSwitchKnobBrush" Color="#CFCFD4" />
+    <SolidColorBrush x:Key="SettingsSliderThumbBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="AccentBrush" Color="#FFD66B" />
 
     <Style TargetType="{x:Type ToolTip}">
@@ -93,7 +100,7 @@
         <Setter Property="Padding" Value="10,0" />
         <Setter Property="Foreground" Value="{DynamicResource SettingsTextBrush}" />
         <Setter Property="Background" Value="{DynamicResource SettingsInputBrush}" />
-        <Setter Property="BorderBrush" Value="#24FFFFFF" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SettingsBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontFamily" Value="Microsoft YaHei UI, Segoe UI" />
         <Setter Property="FontSize" Value="11.5" />
@@ -108,10 +115,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="#26FFFFFF" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SettingsHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="#36FFFFFF" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SettingsHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.35" />
@@ -166,8 +173,8 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type CheckBox}">
-                    <Border x:Name="Track" Background="#26FFFFFF" CornerRadius="10.5">
-                        <Ellipse x:Name="Knob" Width="15" Height="15" Fill="#CFCFD4" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0" />
+                    <Border x:Name="Track" Background="{DynamicResource SettingsInputBrush}" CornerRadius="10.5">
+                        <Ellipse x:Name="Knob" Width="15" Height="15" Fill="{DynamicResource SettingsSwitchKnobBrush}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="3,0,0,0" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
@@ -186,7 +193,7 @@
     </Style>
 
     <Style x:Key="SegmentStyle" TargetType="{x:Type RadioButton}">
-        <Setter Property="Foreground" Value="#B9B9C1" />
+        <Setter Property="Foreground" Value="{DynamicResource SettingsMutedBrush}" />
         <Setter Property="FontFamily" Value="Microsoft YaHei UI, Segoe UI" />
         <Setter Property="FontSize" Value="11.5" />
         <Setter Property="Margin" Value="0,0,5,0" />
@@ -195,12 +202,12 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type RadioButton}">
-                    <Border x:Name="Bg" Background="#12FFFFFF" CornerRadius="5" Padding="8,6">
+                    <Border x:Name="Bg" Background="{DynamicResource SettingsInputBrush}" CornerRadius="5" Padding="8,6">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF" />
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SettingsHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="Bg" Property="Background" Value="{DynamicResource AccentBrush}" />
@@ -222,7 +229,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type Slider}">
                     <Grid VerticalAlignment="Center">
-                        <Border Height="4" CornerRadius="2" Background="#26FFFFFF" VerticalAlignment="Center" />
+                        <Border Height="4" CornerRadius="2" Background="{DynamicResource SettingsInputBrush}" VerticalAlignment="Center" />
                         <Track x:Name="PART_Track">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Focusable="False">
@@ -246,7 +253,7 @@
                                 <Thumb Width="15" Height="15" Focusable="False" Cursor="Hand">
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="{x:Type Thumb}">
-                                            <Ellipse Fill="#FFFFFF" Stroke="#33000000" StrokeThickness="1" />
+                                            <Ellipse Fill="{DynamicResource SettingsSliderThumbBrush}" Stroke="#33000000" StrokeThickness="1" />
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
