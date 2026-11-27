@@ -60,7 +60,7 @@ public sealed class SettingsModel
     // AI assistant. The window is optional and quiet unless the user asks it something.
     public bool AiEnabled { get; set; }
     public bool AiCollapsed { get; set; }
-    public string AiAssistantName { get; set; } = "cochubbylung";
+    public string AiAssistantName { get; set; } = "CoChubbyLung";
     public string AiEndpoint { get; set; } = "https://api.openai.com/v1";
     public string AiApiKey { get; set; } = string.Empty;
     public string AiAccentColor { get; set; } = "#FFD66B";

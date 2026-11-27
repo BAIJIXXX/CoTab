@@ -273,7 +273,7 @@
                 <Grid Grid.Row="0" Margin="12,0,8,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Image x:Name="AvatarImage" Width="24" Height="24" Margin="0,0,8,0" Stretch="Uniform" />
-                        <TextBlock x:Name="AssistantNameText" Text="cochubbylung"
+                        <TextBlock x:Name="AssistantNameText" Text="CoChubbyLung"
                                    Foreground="{DynamicResource AiTextBrush}" FontSize="12" FontWeight="SemiBold" />
                     </StackPanel>
                     <Button x:Name="CollapseButton" Width="26" Height="26" HorizontalAlignment="Right"

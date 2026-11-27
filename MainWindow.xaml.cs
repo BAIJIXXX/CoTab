@@ -1760,7 +1760,7 @@ public partial class MainWindow : Window
             CloseExitRadio.IsChecked = settings.CloseAction == CloseAction.Exit;
             AiEnabledSwitch.IsChecked = settings.AiEnabled;
             var assistantName = string.IsNullOrWhiteSpace(settings.AiAssistantName)
-                ? "cochubbylung"
+                ? "CoChubbyLung"
                 : settings.AiAssistantName;
             OpenAssistantButton.IsEnabled = settings.AiEnabled;
             OpenAssistantButton.Content = "打开 " + assistantName;

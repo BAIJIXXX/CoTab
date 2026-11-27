@@ -661,7 +661,7 @@ public partial class AssistantWindow : Window
         get
         {
             var value = _state.Settings.AiAssistantName;
-            return string.IsNullOrWhiteSpace(value) ? "cochubbylung" : value.Trim();
+            return string.IsNullOrWhiteSpace(value) ? "CoChubbyLung" : value.Trim();
         }
     }
 
@@ -688,7 +688,7 @@ public partial class AssistantWindow : Window
     private void AssistantNameBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         var raw = AssistantNameBox.Text?.Trim();
-        var name = string.IsNullOrWhiteSpace(raw) ? "cochubbylung" : raw;
+        var name = string.IsNullOrWhiteSpace(raw) ? "CoChubbyLung" : raw;
         _state.Settings.AiAssistantName = name;
         AssistantNameText.Text = name;
         Title = name;
@@ -783,7 +783,7 @@ public partial class AssistantWindow : Window
     {
         var s = _state.Settings;
         s.AiAssistantName = string.IsNullOrWhiteSpace(AssistantNameBox.Text)
-            ? "cochubbylung"
+            ? "CoChubbyLung"
             : AssistantNameBox.Text.Trim();
         s.AiEndpoint = string.IsNullOrWhiteSpace(EndpointBox.Text) ? "https://api.openai.com/v1" : EndpointBox.Text.Trim();
         s.AiApiKey = ApiKeyBox.Password.Trim();
