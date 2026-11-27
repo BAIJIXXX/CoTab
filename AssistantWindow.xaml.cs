@@ -77,7 +77,7 @@ public partial class AssistantWindow : Window
             : Colors.White;
         _codeFillColor = ColorUtil.Blend(_panelColor, _textColor, 0.09);
 
-        var shell = ColorUtil.WithAlpha(_panelColor, Math.Clamp(settings.PanelOpacity, 0.74, 0.97));
+        var shell = ColorUtil.WithAlpha(_panelColor, Math.Clamp(settings.PanelOpacity, 0.18, 1.0));
         var hover = dark ? Color.FromArgb(30, 255, 255, 255) : Color.FromArgb(18, 0, 0, 0);
         var segment = dark ? Color.FromArgb(18, 255, 255, 255) : Color.FromArgb(10, 0, 0, 0);
         var thumb = dark ? Color.FromArgb(84, 255, 255, 255) : Color.FromArgb(54, 0, 0, 0);
@@ -110,15 +110,15 @@ public partial class AssistantWindow : Window
 
     public void FollowMain()
     {
-        if (!_state.Settings.AiEnabled || _main.IsHiddenToTrayForAi || _main.IsCollapsedForAi || !_main.IsVisible)
+        if (!_state.Settings.AiEnabled || _state.Settings.AiCollapsed ||
+            _main.IsHiddenToTrayForAi || _main.IsCollapsedForAi || !_main.IsVisible)
         {
             if (IsVisible) Hide();
             return;
         }
 
         var work = ScreenUtil.GetWorkAreaDip(_main);
-        var collapsed = _state.Settings.AiCollapsed;
-        var width = collapsed ? CollapsedWidth : ExpandedWidth;
+        var width = ExpandedWidth;
 
         // The main panel is inset 16 DIP inside its window; align the assistant
         // shell to the visible panel, not to the transparent shadow margin.
@@ -128,9 +128,7 @@ public partial class AssistantWindow : Window
 
         var panelTop = _main.Top + panelInset;
         var panelHeight = Math.Max(320, _main.Height - panelInset * 2);
-        var height = collapsed
-            ? CollapsedHeight
-            : Math.Clamp(panelHeight + shellMargin * 2, 320, Math.Max(320, work.Height - 8));
+        var height = Math.Clamp(panelHeight + shellMargin * 2, 320, Math.Max(320, work.Height - 8));
 
         if (Math.Abs(Width - width) > 0.1) Width = width;
         if (Math.Abs(Height - height) > 0.1) Height = height;
@@ -142,9 +140,7 @@ public partial class AssistantWindow : Window
             left = panelLeft - panelGap - width + shellMargin;
         left = Math.Clamp(left, work.Left + 4, Math.Max(work.Left + 4, work.Right - width - 4));
 
-        var top = collapsed
-            ? panelTop + panelHeight / 2 - height / 2
-            : panelTop - shellMargin;
+        var top = panelTop - shellMargin;
         top = Math.Clamp(top, work.Top + 4, Math.Max(work.Top + 4, work.Bottom - height - 4));
 
         Left = left;
@@ -169,7 +165,16 @@ public partial class AssistantWindow : Window
     {
         _state.Settings.AiCollapsed = collapsed;
         ApplyCollapsedState();
-        FollowMain();
+        if (collapsed)
+        {
+            if (IsVisible) Hide();
+        }
+        else
+        {
+            if (!IsVisible) Show();
+            FollowMain();
+        }
+        _main.UpdateAiPageHint();
     }
 
     private void SelectTab(RadioButton tab, int index)
@@ -581,15 +586,13 @@ public partial class AssistantWindow : Window
         _state.Settings.AiCollapsed = true;
         _main.PersistAiSettings();
         ApplyCollapsedState();
-        FollowMain();
+        Hide();
+        _main.UpdateAiPageHint();
     }
 
     private void CollapsedTab_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        _state.Settings.AiCollapsed = false;
-        _main.PersistAiSettings();
-        ApplyCollapsedState();
-        FollowMain();
+        SetCollapsed(false);
         Activate();
     }
 
@@ -597,11 +600,13 @@ public partial class AssistantWindow : Window
     {
         var collapsed = _state.Settings.AiCollapsed;
         ShellBorder.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
-        CollapsedTab.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed;
-        Width = collapsed ? CollapsedWidth : ExpandedWidth;
-        Height = collapsed ? CollapsedHeight : Math.Max(320, _main.Height);
+        // The old narrow side tab is replaced by the page edge rendered on the
+        // main window itself, so the assistant window simply hides.
+        CollapsedTab.Visibility = Visibility.Collapsed;
+        Width = ExpandedWidth;
+        Height = Math.Max(320, _main.Height);
         if (collapsed && IsVisible)
-            FollowMain();
+            Hide();
     }
 
     private bool HasApiKey() =>

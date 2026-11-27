@@ -104,7 +104,7 @@ AI 助手具备以下能力：
 - 便签内容发生变化后，本地规则会识别「明天 14:30」「后天 9 点」「11月28日 下午3点」等中文/英文时间表达，转换成日程；提前提醒分钟数可在 AI 设置页修改
 - 到时间前弹出置顶提醒，可以「稍后 10 分钟」或「知道了」
 - 可选在识别到日程变化时，在对话里静默生成一条整理建议
-- 除主动提问、到点提醒和可选的整理建议外，不会在后台调用模型；AI 小窗随时可以折叠成侧边的小标签
+- 除主动提问、到点提醒和可选的整理建议外，不会在后台调用模型；AI 小窗折叠后，主面板右侧会露出一叠“书页边缘”，点击即可重新展开
 
 隐私说明：
 
@@ -114,7 +114,7 @@ AI 助手具备以下能力：
 
 ![AI 助手设置](docs/screenshots/assistant-settings.png)
 
-![AI 小窗折叠](docs/screenshots/assistant-collapsed.png)
+![AI 小窗折叠成主面板后的书页边缘](docs/screenshots/assistant-collapsed.png)
 
 ![日程提醒](docs/screenshots/assistant-reminder.png)
 

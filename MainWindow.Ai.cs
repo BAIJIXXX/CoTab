@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Windows;
+using System.Windows.Media;
 using System.Windows.Threading;
 using CoTab.Helpers;
 using CoTab.Models;
@@ -21,7 +23,9 @@ public partial class MainWindow
             QueueSave();
 
         StartReminderTimer();
-        ShowAssistant(openSettings: !HasAiConfiguration(), activate: false);
+        UpdateAiPageHint();
+        if (!_state.Settings.AiCollapsed)
+            ShowAssistant(openSettings: !HasAiConfiguration(), activate: false);
     }
 
     private bool HasAiConfiguration() =>
@@ -57,17 +61,26 @@ public partial class MainWindow
         if (enabled)
         {
             StartAiServices();
-            ShowAssistant(openSettings: !HasAiConfiguration(), activate: true);
+            UpdateAiPageHint();
+            if (!_state.Settings.AiCollapsed)
+                ShowAssistant(openSettings: !HasAiConfiguration(), activate: true);
         }
         else
         {
             StopAiServices();
+            UpdateAiPageHint();
         }
     }
 
     private void ShowAssistant(bool openSettings = false, bool activate = true)
     {
         if (_previewMode || !AiEnabled) return;
+
+        if (_state.Settings.AiCollapsed)
+        {
+            _state.Settings.AiCollapsed = false;
+            QueueSave();
+        }
 
         if (_assistantWindow == null)
         {
@@ -98,16 +111,23 @@ public partial class MainWindow
             _pendingAiSuggestion = null;
             _assistantWindow.AddSuggestion(suggestion);
         }
+        UpdateAiPageHint();
     }
 
     private void HideAssistant()
     {
         _assistantWindow?.Hide();
+        UpdateAiPageHint();
     }
 
     private void ShowAssistantAfterRestore()
     {
         if (!AiEnabled) return;
+        if (_state.Settings.AiCollapsed)
+        {
+            UpdateAiPageHint();
+            return;
+        }
         ShowAssistant(activate: false);
     }
 
@@ -116,6 +136,44 @@ public partial class MainWindow
     public AppMode CurrentMode => _state.Settings.Mode;
 
     public void PersistAiSettings() => SaveNow();
+
+    public bool IsAiPageHintVisibleForProbe => AiPageHint.Visibility == Visibility.Visible;
+
+    public void UpdateAiPageHint()
+    {
+        var visible = AiEnabled && _state.Settings.AiCollapsed &&
+                      !_hiddenToTray && !_isCollapsed &&
+                      (_previewMode || IsVisible);
+        AiPageHint.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (!visible) return;
+
+        var settings = _state.Settings;
+        var panel = ColorUtil.Parse(settings.PanelColor, Colors.White);
+        var accent = ColorUtil.Parse(settings.AiAccentColor, Color.FromRgb(255, 214, 107));
+        var ink = ColorUtil.Parse(settings.CloseColor, Color.FromRgb(59, 60, 66));
+        var opacity = Math.Clamp(settings.PanelOpacity, 0.18, 1.0);
+        var edge = ColorUtil.WithAlpha(ink, 0.16);
+        var line = ColorUtil.WithAlpha(ink, 0.40);
+
+        AiPageFront.Background = ColorUtil.Brush(ColorUtil.WithAlpha(panel, opacity));
+        AiPageBack.Background = ColorUtil.Brush(ColorUtil.WithAlpha(panel, Math.Max(0.12, opacity - 0.16)));
+        AiPageFront.BorderBrush = ColorUtil.Brush(edge);
+        AiPageBack.BorderBrush = ColorUtil.Brush(ColorUtil.WithAlpha(ink, 0.10));
+        AiPageAccent.Background = ColorUtil.Brush(accent);
+        AiPageLine1.Background = ColorUtil.Brush(line);
+        AiPageLine2.Background = ColorUtil.Brush(line);
+        AiPageLine3.Background = ColorUtil.Brush(line);
+    }
+
+    private void AiPageHint_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (!AiEnabled) return;
+        _state.Settings.AiCollapsed = false;
+        PersistAiSettings();
+        UpdateAiPageHint();
+        ShowAssistant(activate: true);
+        e.Handled = true;
+    }
 
     private void OpenAssistantButton_Click(object sender, System.Windows.RoutedEventArgs e)
     {

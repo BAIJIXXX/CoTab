@@ -350,6 +350,7 @@ public partial class MainWindow : Window
         ApplyChromePills();
         RefreshChromeState();
         _assistantWindow?.ApplyTheme();
+        UpdateAiPageHint();
     }
 
     /// <summary>
