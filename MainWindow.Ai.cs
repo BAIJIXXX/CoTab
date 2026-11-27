@@ -152,17 +152,46 @@ public partial class MainWindow
         var accent = ColorUtil.Parse(settings.AiAccentColor, Color.FromRgb(255, 214, 107));
         var ink = ColorUtil.Parse(settings.CloseColor, Color.FromRgb(59, 60, 66));
         var opacity = Math.Clamp(settings.PanelOpacity, 0.18, 1.0);
-        var edge = ColorUtil.WithAlpha(ink, 0.16);
-        var line = ColorUtil.WithAlpha(ink, 0.40);
+        var edge = ColorUtil.WithAlpha(ink, 0.22);
+        var onRight = _assistantWindow?.IsOnRightSide ?? ComputeAiSideIsRight();
+
+        AiPageHint.HorizontalAlignment = onRight ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        AiPageHint.Margin = onRight
+            ? new Thickness(0, 16, 2, 16)
+            : new Thickness(2, 16, 0, 16);
+        AiPageFront.CornerRadius = onRight
+            ? new CornerRadius(0, 5, 5, 0)
+            : new CornerRadius(5, 0, 0, 5);
+        AiPageAccent.HorizontalAlignment = onRight ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+        AiPageAccent.Margin = onRight
+            ? new Thickness(0, 16, 3, 0)
+            : new Thickness(3, 16, 0, 0);
 
         AiPageFront.Background = ColorUtil.Brush(ColorUtil.WithAlpha(panel, opacity));
-        AiPageBack.Background = ColorUtil.Brush(ColorUtil.WithAlpha(panel, Math.Max(0.12, opacity - 0.16)));
         AiPageFront.BorderBrush = ColorUtil.Brush(edge);
-        AiPageBack.BorderBrush = ColorUtil.Brush(ColorUtil.WithAlpha(ink, 0.10));
         AiPageAccent.Background = ColorUtil.Brush(accent);
-        AiPageLine1.Background = ColorUtil.Brush(line);
-        AiPageLine2.Background = ColorUtil.Brush(line);
-        AiPageLine3.Background = ColorUtil.Brush(line);
+    }
+
+    public bool ProbeAiPageHintHitAt(Point point)
+    {
+        var hit = InputHitTest(point) as DependencyObject;
+        while (hit != null)
+        {
+            if (ReferenceEquals(hit, AiPageHint)) return true;
+            hit = VisualTreeHelper.GetParent(hit);
+        }
+        return false;
+    }
+
+    private bool ComputeAiSideIsRight()
+    {
+        var work = ScreenUtil.GetWorkAreaDip(this);
+        const double panelInset = 16;
+        const double panelGap = 4;
+        const double shellMargin = 10;
+        const double assistantWidth = 360;
+        var panelRight = Left + Width - panelInset;
+        return panelRight + panelGap - shellMargin + assistantWidth <= work.Right - 4;
     }
 
     private void AiPageHint_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)

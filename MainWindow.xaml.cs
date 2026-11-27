@@ -137,11 +137,13 @@ public partial class MainWindow : Window
             {
                 UpdateEdgeIndicator();
                 _assistantWindow?.FollowMain();
+                UpdateAiPageHint();
             };
             SizeChanged += (_, _) =>
             {
                 UpdateEdgeIndicator();
                 _assistantWindow?.FollowMain();
+                UpdateAiPageHint();
             };
         }
     }

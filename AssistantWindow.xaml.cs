@@ -40,6 +40,8 @@ public partial class AssistantWindow : Window
     private SolidColorBrush _borderBrush = new(Color.FromArgb(34, 0, 0, 0));
     private SolidColorBrush _accentBrush = new(Color.FromRgb(255, 214, 107));
 
+    public bool IsOnRightSide { get; private set; } = true;
+
     public AssistantWindow(AppState state, ScheduleService schedule, MainWindow main)
     {
         InitializeComponent();
@@ -110,6 +112,15 @@ public partial class AssistantWindow : Window
 
     public void FollowMain()
     {
+        var work = ScreenUtil.GetWorkAreaDip(_main);
+        const double panelInset = 16;
+        const double shellMargin = 10;
+        const double panelGap = 4;
+        var panelLeft = _main.Left + panelInset;
+        var panelRight = _main.Left + _main.Width - panelInset;
+        var rightShellLeft = panelRight + panelGap - shellMargin;
+        IsOnRightSide = rightShellLeft + ExpandedWidth <= work.Right - 4;
+
         if (!_state.Settings.AiEnabled || _state.Settings.AiCollapsed ||
             _main.IsHiddenToTrayForAi || _main.IsCollapsedForAi || !_main.IsVisible)
         {
@@ -117,15 +128,10 @@ public partial class AssistantWindow : Window
             return;
         }
 
-        var work = ScreenUtil.GetWorkAreaDip(_main);
         var width = ExpandedWidth;
 
         // The main panel is inset 16 DIP inside its window; align the assistant
         // shell to the visible panel, not to the transparent shadow margin.
-        const double panelInset = 16;
-        const double shellMargin = 10;
-        const double panelGap = 4;
-
         var panelTop = _main.Top + panelInset;
         var panelHeight = Math.Max(320, _main.Height - panelInset * 2);
         var height = Math.Clamp(panelHeight + shellMargin * 2, 320, Math.Max(320, work.Height - 8));
@@ -133,11 +139,9 @@ public partial class AssistantWindow : Window
         if (Math.Abs(Width - width) > 0.1) Width = width;
         if (Math.Abs(Height - height) > 0.1) Height = height;
 
-        var panelLeft = _main.Left + panelInset;
-        var panelRight = _main.Left + _main.Width - panelInset;
-        var left = panelRight + panelGap - shellMargin;
-        if (left + width > work.Right - 4)
-            left = panelLeft - panelGap - width + shellMargin;
+        var left = IsOnRightSide
+            ? rightShellLeft
+            : panelLeft - panelGap - width + shellMargin;
         left = Math.Clamp(left, work.Left + 4, Math.Max(work.Left + 4, work.Right - width - 4));
 
         var top = panelTop - shellMargin;
